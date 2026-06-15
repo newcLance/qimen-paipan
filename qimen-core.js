@@ -607,17 +607,18 @@
   }
 
   // 转人盘八门
+  // 规则（验证自标准盘）：
+  //   1. 值使门 = 旬首所在宫(fuPalace, 中宫寄2)的本位门。
+  //   2. 值使门最终落宫 = 从「旬首宫」起，按九宫数(阳遁顺1→9、阴遁逆9→1，跳中5)
+  //      行进「时辰距旬首的步数」步。
+  //   3. 八门定序「休生伤杜景死惊开」整组沿后天八卦顺时针环铺；
+  //      值使门坐其落宫，其余门按 DOOR_SEQ 顺序、不论阴阳遁一律顺时针铺满八宫。
   function rotateDoors(zhishiDoor, fuPalace, hourZhiIdx, xunShou, yin) {
-    // 值使门数：从值使原宫起，按"时辰距旬首的步数"在九宫(阳顺阴逆,跳中宫)行进
-    // 计算时辰序数：旬首=甲子... 当前时辰干支 距旬首的步数
-    // 步数 = (当前时支在旬内的位置)
-    const xunZhi = ZHI.indexOf(xunShou[1]); // 旬首地支
-    let steps = (hourZhiIdx - xunZhi + 12) % 12; // 0..n
-    // 八门在九宫排布（跳过中5）。值使门从其本位宫起走 steps 步
-    const ring = CLOCKWISE;
-    // 但八门行进是按宫位数顺逆(1..9)跳中5，而非后天卦环
-    // 标准：阳遁顺行(宫数+)，阴遁逆行(宫数-)，遇中5跳过
-    let p = fuPalace; // 值使门本位 = 值符宫本位
+    const xunZhi = ZHI.indexOf(xunShou[1]);          // 旬首地支
+    let steps = (hourZhiIdx - xunZhi + 12) % 12;     // 时辰距旬首步数 0..n
+
+    // 值使门落宫：沿九宫数顺逆行进，跳中5
+    let p = fuPalace;
     let count = 0;
     while (count < steps) {
       if (yin) { p--; if (p < 1) p = 9; } else { p++; if (p > 9) p = 1; }
@@ -625,16 +626,16 @@
       count++;
     }
     const zhishiPalace = p;
-    // 以 zhishiDoor 在 zhishiPalace 为起点，按 DOOR_SEQ 顺序、阳顺阴逆铺满八宫
+
+    // 八门铺布：DOOR_SEQ 整组沿 CLOCKWISE 后天卦环【一律顺时针】，
+    // 值使门坐 zhishiPalace，后续门顺序坐其顺时针方向的宫。
+    const ring = CLOCKWISE; // [1,8,3,4,9,2,7,6]
     const doors = {};
     const startDoorIdx = DOOR_SEQ.indexOf(zhishiDoor);
-    // 八门按后天卦顺时针(阳)/逆时针(阴)铺
     const ringIdxStart = ring.indexOf(zhishiPalace);
     for (let i = 0; i < 8; i++) {
       const doorName = DOOR_SEQ[(startDoorIdx + i) % 8];
-      let ringIdx;
-      if (yin) ringIdx = (ringIdxStart - i + 8) % 8;
-      else ringIdx = (ringIdxStart + i) % 8;
+      const ringIdx = (ringIdxStart + i) % 8; // 八门不分阴阳一律顺时针
       doors[ring[ringIdx]] = doorName;
     }
     return { doors, zhishiPalace };
