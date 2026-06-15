@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>莲花派奇门遁甲 · 在线排盘</title>
+<style>
+  :root{
+    --bg:#f4f1ea;            /* 宣纸底 */
+    --panel:#fbf9f4;
+    --ink:#23201b;          /* 墨色 */
+    --ink-soft:#6b6359;
+    --line:#d9d2c4;
+    --jade:#2f5d50;         /* 墨绿 */
+    --jade-soft:#5a8475;
+    --cinnabar:#a8392b;     /* 朱砂 */
+    --gold:#9a7b3f;
+    --cell:#ffffff;
+    --cell-center:#f1ece0;
+    --shadow:0 1px 3px rgba(60,50,35,.08),0 8px 24px rgba(60,50,35,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #ece6d8 0%, transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"Songti SC","STSong","Noto Serif SC",Georgia,serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 20px 64px}
+
+  /* 头部 */
+  header.site{text-align:center;margin-bottom:26px;position:relative}
+  .seal{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:48px;height:48px;border:2px solid var(--cinnabar);border-radius:8px;
+    color:var(--cinnabar);font-size:24px;font-weight:700;
+    transform:rotate(-4deg);margin-bottom:10px;letter-spacing:-2px;
+    font-family:"KaiTi","STKaiti",serif;
+  }
+  h1.title{font-size:30px;letter-spacing:6px;font-weight:600}
+  .subtitle{margin-top:6px;color:var(--ink-soft);font-size:13.5px;letter-spacing:2px}
+  .lineage{margin-top:10px;font-size:12.5px;color:var(--jade);letter-spacing:1px}
+  .lineage b{color:var(--cinnabar);font-weight:600}
+
+  /* 输入区 */
+  .panel{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    box-shadow:var(--shadow);padding:22px 24px;margin-bottom:24px;
+  }
+  .form-row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:12px;color:var(--ink-soft);letter-spacing:1px}
+  .field input,.field select{
+    font-family:inherit;font-size:15px;color:var(--ink);
+    background:#fff;border:1px solid var(--line);border-radius:8px;
+    padding:9px 12px;outline:none;transition:border-color .15s, box-shadow .15s;
+  }
+  .field input:focus,.field select:focus{border-color:var(--jade-soft);box-shadow:0 0 0 3px rgba(90,132,117,.15)}
+  .field.num input{width:78px;text-align:center}
+  .btns{display:flex;gap:10px;margin-left:auto}
+  button{
+    font-family:inherit;cursor:pointer;border:none;border-radius:9px;
+    padding:10px 22px;font-size:14.5px;letter-spacing:2px;transition:.15s;
+  }
+  .btn-cast{background:var(--jade);color:#fff;box-shadow:0 2px 8px rgba(47,93,80,.3)}
+  .btn-cast:hover{background:#274e43;transform:translateY(-1px)}
+  .btn-now{background:transparent;color:var(--jade);border:1px solid var(--jade-soft)}
+  .btn-now:hover{background:rgba(47,93,80,.06)}
+
+  /* 信息条 */
+  .info-bar{
+    display:flex;flex-wrap:wrap;gap:0;margin-bottom:22px;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    overflow:hidden;box-shadow:var(--shadow);
+  }
+  .info-cell{flex:1;min-width:130px;padding:14px 16px;border-right:1px solid var(--line)}
+  .info-cell:last-child{border-right:none}
+  .info-cell .k{font-size:11px;color:var(--ink-soft);letter-spacing:2px;margin-bottom:4px}
+  .info-cell .v{font-size:17px;color:var(--ink);letter-spacing:1px}
+  .info-cell .v.hl{color:var(--cinnabar);font-weight:600}
+  .info-cell .v.jade{color:var(--jade);font-weight:600}
+  .sizhu-grp{display:flex;gap:14px}
+  .sizhu-grp .z{text-align:center}
+  .sizhu-grp .z small{display:block;font-size:10px;color:var(--ink-soft);letter-spacing:1px;margin-top:2px}
+
+  /* 九宫盘 */
+  .plate-shell{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+  .plate{
+    flex:1 1 520px;min-width:320px;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+    background:linear-gradient(135deg,#efe9db,#f6f2e8);
+    padding:10px;border-radius:16px;border:1px solid var(--line);
+    box-shadow:var(--shadow);aspect-ratio:1/1;
+  }
+  .cell{
+    position:relative;background:var(--cell);border:1px solid var(--line);
+    border-radius:11px;padding:8px 8px 6px;display:flex;flex-direction:column;
+    min-height:0;overflow:hidden;transition:.15s;
+  }
+  .cell:hover{border-color:var(--jade-soft);box-shadow:0 0 0 2px rgba(90,132,117,.12)}
+  .cell.center{background:var(--cell-center);align-items:center;justify-content:center;text-align:center}
+  .cell-top{display:flex;justify-content:space-between;align-items:flex-start;font-size:11px;color:var(--ink-soft)}
+  .cell-pal{font-weight:600;color:var(--jade);letter-spacing:1px}
+  .cell-dir{font-size:10px}
+  /* 神/星/门 行 */
+  .row-shen{font-size:12.5px;color:var(--gold);letter-spacing:1px;margin-top:3px;min-height:18px;font-weight:600;text-align:left}
+  .row-star{font-size:13px;color:var(--ink);letter-spacing:1px;margin-top:1px;text-align:left}
+  .row-door{font-size:13px;letter-spacing:1px;margin-top:1px;font-weight:600;text-align:left;display:flex;align-items:center;gap:5px}
+  .door-name{display:inline-flex;align-items:center}
+  .door-ji{color:var(--jade)}
+  .door-xiong{color:var(--cinnabar)}
+  /* 门迫：门名描边框柱 + 旁边小标签 */
+  .door-name.is-po{
+    border:1px solid #c79a55;border-radius:5px;padding:0 5px;
+    background:rgba(199,154,85,.1);
+  }
+  .door-po-tag{
+    font-size:9px;font-weight:600;letter-spacing:.5px;line-height:1.5;
+    padding:1px 5px;border-radius:5px;
+    background:#efe3d6;color:#9a6a2f;border:1px solid #d9c19e;
+  }
+  /* 干区：天地盘干竖排在右下角，天盘干在上、地盘干在下 */
+  .gan-zone{
+    position:absolute;right:9px;bottom:7px;
+    display:flex;flex-direction:column;align-items:center;gap:1px;
+  }
+  .gan-sky{font-size:20px;font-weight:700;color:var(--cinnabar);font-family:"KaiTi","STKaiti",serif;line-height:1.05}
+  .gan-earth{font-size:20px;font-weight:700;color:var(--ink);font-family:"KaiTi","STKaiti",serif;line-height:1.05}
+  /* 标注：移到左下角，避免与右下角天地盘干冲突 */
+  .marks{position:absolute;bottom:5px;left:6px;display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-start;max-width:60%}
+  .mark{font-size:9px;padding:1px 5px;border-radius:5px;letter-spacing:.5px;line-height:1.5;white-space:nowrap}
+  .mark.kong{background:#eceae3;color:#8a8275;border:1px dashed #c3bbab}
+  .mark.ma{background:#eaf1ee;color:var(--jade);border:1px solid #bcd4cb}
+  .mark.mu{background:#f3e9e2;color:#8a5a36;border:1px solid #d8c0aa}
+  .mark.xing{background:#f6e6e3;color:var(--cinnabar);border:1px solid #e2b6ae}
+  .mark.pomu{background:var(--cinnabar);color:#fff}
+  .mark.pomen{background:#efe3d6;color:#9a6a2f;border:1px solid #d9c19e}
+
+  /* 右侧图例/说明 */
+  .side{flex:1 1 240px;min-width:220px}
+  .side h3{font-size:14px;letter-spacing:2px;color:var(--jade);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .legend{display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:var(--ink-soft)}
+  .legend .li{display:flex;gap:8px;align-items:flex-start}
+  .legend .tag{flex-shrink:0}
+  .legend .desc{line-height:1.5}
+  .note{margin-top:18px;font-size:11.5px;color:var(--ink-soft);line-height:1.7;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+
+  footer{margin-top:40px;text-align:center;font-size:11.5px;color:var(--ink-soft);letter-spacing:1px;line-height:1.8}
+  footer .disc{color:#a89f8f;margin-top:6px}
+
+  .empty-hint{text-align:center;color:var(--ink-soft);padding:60px 20px;font-size:14px;letter-spacing:1px}
+
+  @media (max-width:680px){
+    h1.title{font-size:24px;letter-spacing:3px}
+    .info-cell{min-width:50%}
+    .btns{margin-left:0;width:100%}
+    .btns button{flex:1}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="site">
+    <div class="seal">奇</div>
+    <h1 class="title">莲花派奇门遁甲</h1>
+    <div class="subtitle">时家转盘 · 拆补法定局 · 在线排盘</div>
+    <div class="lineage">莲花十二宫</div>
+  </header>
+
+  <!-- 输入 -->
+  <div class="panel">
+    <div class="form-row">
+      <div class="field num"><label>公历年</label><input id="y" type="number" value="2009"></div>
+      <div class="field num"><label>月</label><input id="mo" type="number" min="1" max="12" value="4"></div>
+      <div class="field num"><label>日</label><input id="da" type="number" min="1" max="31" value="1"></div>
+      <div class="field num"><label>时</label><input id="hh" type="number" min="0" max="23" value="16"></div>
+      <div class="field num"><label>分</label><input id="mm" type="number" min="0" max="59" value="56"></div>
+      <div class="btns">
+        <button class="btn-now" onclick="useNow()">此刻</button>
+        <button class="btn-cast" onclick="cast()">起　局</button>
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:14px;align-items:center">
+      <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-soft);cursor:pointer">
+        <input type="checkbox" id="tsOn" checked onchange="onTsToggle()" style="width:16px;height:16px;accent-color:var(--jade)">
+        真太阳时校正（经度修正）
+      </label>
+      <div class="field" id="cityField">
+        <label>地点 / 经度</label>
+        <select id="city" onchange="onCity()">
+          <option value="116.41">北京 116.41°E</option>
+          <option value="121.47">上海 121.47°E</option>
+          <option value="113.26">广州 113.26°E</option>
+          <option value="114.06">深圳 114.06°E</option>
+          <option value="104.07">成都 104.07°E</option>
+          <option value="108.95">西安 108.95°E</option>
+          <option value="120.16">杭州 120.16°E</option>
+          <option value="114.30">武汉 114.30°E</option>
+          <option value="126.63">哈尔滨 126.63°E</option>
+          <option value="91.13">拉萨 91.13°E</option>
+          <option value="87.62">乌鲁木齐 87.62°E</option>
+          <option value="120.00">东八区中线 120°E（=北京时间）</option>
+          <option value="__custom">自定义经度…</option>
+        </select>
+      </div>
+      <div class="field num" id="lonField" style="display:none">
+        <label>东经 °</label><input id="lon" type="number" step="0.01" value="116.41">
+      </div>
+    </div>
+  </div>
+
+  <!-- 真太阳时提示 -->
+  <div id="tsBar" style="display:none;margin:-8px 0 18px;padding:9px 16px;background:#eef3f0;border:1px solid #cfe0d8;border-radius:10px;font-size:12.5px;color:var(--jade);letter-spacing:.5px"></div>
+
+  <!-- 信息条 -->
+  <div class="info-bar" id="infoBar" style="display:none">
+    <div class="info-cell">
+      <div class="k">四　柱</div>
+      <div class="sizhu-grp" id="sizhu"></div>
+    </div>
+    <div class="info-cell">
+      <div class="k">局　数</div>
+      <div class="v hl" id="juName">—</div>
+    </div>
+    <div class="info-cell">
+      <div class="k">节气 / 元</div>
+      <div class="v" id="jieqi">—</div>
+    </div>
+    <div class="info-cell">
+      <div class="k">值符 / 值使</div>
+      <div class="v jade" id="fushi">—</div>
+    </div>
+    <div class="info-cell">
+      <div class="k">旬首 · 空亡 · 马</div>
+      <div class="v" id="extra" style="font-size:13.5px">—</div>
+    </div>
+  </div>
+
+  <!-- 盘 + 侧栏 -->
+  <div class="plate-shell">
+    <div class="plate" id="plate">
+      <div class="empty-hint" style="grid-column:1/4">输入公历时间，点击「起局」开始排盘</div>
+    </div>
+    <aside class="side" id="side" style="display:none">
+      <h3>标 注 图 例</h3>
+      <div class="legend">
+        <div class="li"><span class="tag mark kong">空亡</span><span class="desc">宫中地支落旬空，事多虚耗、难成</span></div>
+        <div class="li"><span class="tag mark ma">马星</span><span class="desc">驿马所在，主动象、出行、变迁</span></div>
+        <div class="li"><span class="tag mark mu">入墓</span><span class="desc">天盘干入墓库宫，象昏暗、受困</span></div>
+        <div class="li"><span class="tag mark xing">击刑</span><span class="desc">六仪击刑，宫地支相刑，主刑伤阻滞</span></div>
+        <div class="li"><span class="tag mark pomu">刑+墓</span><span class="desc">既刑且墓，凶象加重</span></div>
+        <div class="li"><span class="tag door-po-tag">门迫</span><span class="desc">门五行克宫，门名加框并标「门迫」；吉门减力、凶门增凶</span></div>
+      </div>
+      <div class="note">
+        <b style="color:var(--jade)">读盘次第</b><br>
+        每宫左侧自上而下：<b>神盘</b>（八神，金字色）→ <b>天盘九星</b> → <b>人盘八门</b>；右下角竖排干字，上为<b style="color:var(--cinnabar)">天盘干</b>、下为<b>地盘干</b>。<br>
+        门色：<span class="door-ji">绿</span>为吉门（开休生），<span class="door-xiong">朱</span>为凶门（死惊伤）。
+      </div>
+    </aside>
+  </div>
+
+  <footer>
+    莲花派时家转盘奇门 · 拆补法定局 · 支持真太阳时（经度+均时差）校正<br>
+    <span class="disc">本工具仅供传统术数文化研究与学习，所排盘面不构成任何决策建议。</span>
+  </footer>
+</div>
+
+<script src="qimen-core.js"></script>
+<script>
+const GAN_WX = {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
+const JI_DOOR = ['开','休','生'];      // 吉门
+const XIONG_DOOR = ['死','惊','伤'];   // 凶门
+// 九宫在3x3网格的位置：洛书 巽4离9坤2 / 震3中5兑7 / 艮8坎1乾6
+const GRID_LAYOUT = [4,9,2, 3,5,7, 8,1,6];
+
+function pad(n){return n<10?'0'+n:''+n;}
+
+// 经度选择交互
+function onCity(){
+  const sel = document.getElementById('city');
+  const lonField = document.getElementById('lonField');
+  if(sel.value==='__custom'){
+    lonField.style.display='flex';
+  }else{
+    lonField.style.display='none';
+    document.getElementById('lon').value = sel.value;
+  }
+}
+function onTsToggle(){
+  const on = document.getElementById('tsOn').checked;
+  document.getElementById('cityField').style.opacity = on?'1':'.4';
+  document.getElementById('city').disabled = !on;
+  document.getElementById('lon').disabled = !on;
+}
+function getLongitude(){
+  if(!document.getElementById('tsOn').checked) return null;
+  const sel = document.getElementById('city');
+  if(sel.value==='__custom') return +document.getElementById('lon').value;
+  return +sel.value;
+}
+
+function useNow(){
+  const d = new Date();
+  document.getElementById('y').value = d.getFullYear();
+  document.getElementById('mo').value = d.getMonth()+1;
+  document.getElementById('da').value = d.getDate();
+  document.getElementById('hh').value = d.getHours();
+  document.getElementById('mm').value = d.getMinutes();
+  cast();
+}
+
+function markClass(m){
+  if(m==='空亡')return 'kong';
+  if(m==='马星')return 'ma';
+  if(m==='入墓')return 'mu';
+  if(m==='击刑')return 'xing';
+  if(m==='刑+墓')return 'pomu';
+  if(m==='门迫')return 'pomen';
+  return '';
+}
+
+function cast(){
+  const lon = getLongitude();
+  const inp = {
+    year:+document.getElementById('y').value,
+    month:+document.getElementById('mo').value,
+    day:+document.getElementById('da').value,
+    hour:+document.getElementById('hh').value,
+    minute:+document.getElementById('mm').value
+  };
+  if(lon!==null) inp.longitude = lon;
+  if(!inp.year||!inp.month||!inp.day){alert('请输入完整的公历日期');return;}
+  let r;
+  try{ r = Qimen.paipan(inp); }
+  catch(e){ alert('排盘出错：'+e.message); console.error(e); return; }
+
+  // 真太阳时提示条
+  const tsBar = document.getElementById('tsBar');
+  if(r.trueSolar){
+    const ts = r.trueSolar;
+    const sign = (v)=> (v>0?'+':'') + v;
+    tsBar.style.display='block';
+    tsBar.innerHTML =
+      `已按真太阳时起盘：北京时间 <b>${pad(inp.hour)}:${pad(inp.minute)}</b> → 真太阳时 <b>${ts.timeStr}</b>`
+      + `　（经度差 ${sign(ts.lonMin)} 分 · 均时差 ${sign(ts.eot)} 分 · 合计 <b>${sign(ts.totalMin)}</b> 分）`;
+  }else{
+    tsBar.style.display='block';
+    tsBar.style.background='#f3efe6';tsBar.style.borderColor='#e0d8c6';tsBar.style.color='var(--ink-soft)';
+    tsBar.textContent='未启用真太阳时校正，直接按北京时间（东八区 120°E）起盘。';
+  }
+
+  // 信息条
+  document.getElementById('infoBar').style.display='flex';
+  document.getElementById('side').style.display='block';
+  const sz = r.sizhu;
+  document.getElementById('sizhu').innerHTML =
+    [['年',sz.year],['月',sz.month],['日',sz.day],['时',sz.hour]]
+      .map(([k,v])=>`<div class="z"><span style="font-size:17px">${v}</span><small>${k}柱</small></div>`).join('');
+  document.getElementById('juName').textContent = r.ju.name;
+  document.getElementById('jieqi').textContent = r.ju.jieqi+' · '+r.ju.yuanName;
+  document.getElementById('fushi').textContent = r.zhifu.star+' / '+r.zhishi.door+'门';
+  document.getElementById('extra').innerHTML =
+    `${r.xunshou} · 空<b style="color:var(--cinnabar)">${r.kongwang.join('')}</b> · 马<b>${r.maxing}</b>`;
+
+  // 九宫
+  const plate = document.getElementById('plate');
+  plate.innerHTML='';
+  GRID_LAYOUT.forEach(p=>{
+    const g = r.grid[p];
+    const cell = document.createElement('div');
+    cell.className = 'cell'+(p===5?' center':'');
+    if(p===5){
+      cell.innerHTML = `
+        <div class="cell-pal" style="font-size:13px">中 五 宫</div>
+        <div class="row-star" style="margin-top:6px;font-size:14px">${g.star}</div>
+        <div class="gan-zone" style="position:static;margin-top:8px" title="上为天盘干，下为地盘干（寄宫）">
+          ${g.skyGan?`<span class="gan-sky">${g.skyGan}</span>`:''}
+          ${g.earthGan?`<span class="gan-earth">${g.earthGan}</span>`:''}
+        </div>`;
+      plate.appendChild(cell);
+      return;
+    }
+    const doorCls = JI_DOOR.includes(g.door)?'door-ji':(XIONG_DOOR.includes(g.door)?'door-xiong':'');
+    const isPo = g.marks.includes('门迫');
+    // 门迫不再进入左下角 marks，改为贴在八门行
+    const otherMarks = g.marks.filter(m=>m!=='门迫');
+    const marksHtml = otherMarks.map(m=>`<span class="mark ${markClass(m)}">${m}</span>`).join('');
+    const doorInner = g.door
+      ? `<span class="door-name ${doorCls} ${isPo?'is-po':''}">${g.door}门</span>${isPo?'<span class="door-po-tag">门迫</span>':''}`
+      : '';
+    cell.innerHTML = `
+      <div class="cell-top">
+        <span class="cell-pal">${p}·${g.name}</span>
+        <span class="cell-dir">${g.dir}</span>
+      </div>
+      <div class="row-shen">${g.shen||''}</div>
+      <div class="row-star">${g.star||''}</div>
+      <div class="row-door">${doorInner}</div>
+      <div class="gan-zone" title="上为天盘干，下为地盘干">
+        <span class="gan-sky">${g.skyGan||'·'}</span>
+        <span class="gan-earth">${g.earthGan||'·'}</span>
+      </div>
+      <div class="marks">${marksHtml}</div>`;
+    plate.appendChild(cell);
+  });
+}
+
+// 初次自动排一盘（示例）
+window.addEventListener('DOMContentLoaded', cast);
+</script>
+</body>
+</html>
