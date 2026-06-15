@@ -70,6 +70,35 @@
   .btn-cast:hover{background:#274e43;transform:translateY(-1px)}
   .btn-now{background:transparent;color:var(--jade);border:1px solid var(--jade-soft)}
   .btn-now:hover{background:rgba(47,93,80,.06)}
+  .btn-hist{background:transparent;color:var(--ink-soft);border:1px solid var(--line);display:inline-flex;align-items:center;gap:6px;padding:10px 16px}
+  .btn-hist:hover{background:rgba(60,50,35,.04);border-color:var(--jade-soft);color:var(--jade)}
+  .hist-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--cinnabar);color:#fff;font-size:11px;letter-spacing:0}
+
+  /* 历史记录抽屉 */
+  .hist-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);margin-bottom:24px;overflow:hidden}
+  .hist-head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line)}
+  .hist-title{font-size:14px;letter-spacing:2px;color:var(--jade);font-weight:600}
+  .hist-head-btns{display:flex;gap:8px}
+  .hist-clear,.hist-close{font-size:12px;letter-spacing:1px;padding:5px 13px;border-radius:7px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);cursor:pointer}
+  .hist-clear:hover{border-color:var(--cinnabar);color:var(--cinnabar)}
+  .hist-close:hover{border-color:var(--jade-soft);color:var(--jade)}
+  .hist-list{max-height:340px;overflow-y:auto;padding:6px}
+  .hist-item{display:flex;align-items:center;gap:14px;padding:11px 14px;border-radius:9px;cursor:pointer;transition:.12s;position:relative}
+  .hist-item:hover{background:rgba(47,93,80,.05)}
+  .hist-item+.hist-item{border-top:1px solid #efe9dd}
+  .hist-time{flex-shrink:0;width:138px}
+  .hist-time .ht-main{font-size:13.5px;color:var(--ink)}
+  .hist-time .ht-sub{font-size:10.5px;color:var(--ink-soft);margin-top:2px}
+  .hist-sz{flex:1;font-size:13px;color:var(--ink-soft);letter-spacing:1px;font-family:"KaiTi","STKaiti",serif}
+  .hist-ju{flex-shrink:0;font-size:12.5px;color:var(--cinnabar);font-weight:600;letter-spacing:1px}
+  .hist-loc{flex-shrink:0;font-size:11px;color:var(--jade);background:#eef3f0;border:1px solid #cfe0d8;border-radius:6px;padding:2px 7px}
+  .hist-del{flex-shrink:0;width:22px;height:22px;border:none;background:transparent;color:#c3bbab;font-size:16px;cursor:pointer;border-radius:5px;line-height:1}
+  .hist-del:hover{background:#f3e6e3;color:var(--cinnabar)}
+  .hist-empty{padding:26px 20px;text-align:center;font-size:12.5px;color:var(--ink-soft);letter-spacing:1px}
+  @media (max-width:680px){
+    .hist-sz{display:none}
+    .hist-time{width:120px}
+  }
 
   /* 信息条 */
   .info-bar{
@@ -210,7 +239,21 @@
       <div class="field num" id="lonField" style="display:none">
         <label>东经 °</label><input id="lon" type="number" step="0.01" value="116.41">
       </div>
+      <button class="btn-hist" onclick="toggleHist()" title="历史记录">历史记录 <span id="histCount" class="hist-count">0</span></button>
     </div>
+  </div>
+
+  <!-- 历史记录抽屉 -->
+  <div class="hist-panel" id="histPanel" style="display:none">
+    <div class="hist-head">
+      <span class="hist-title">起局历史</span>
+      <div class="hist-head-btns">
+        <button class="hist-clear" onclick="clearHist()">清空</button>
+        <button class="hist-close" onclick="toggleHist()">收起</button>
+      </div>
+    </div>
+    <div class="hist-list" id="histList"></div>
+    <div class="hist-empty" id="histEmpty">暂无记录，起局后会自动保存在本机浏览器中。</div>
   </div>
 
   <!-- 真太阳时提示 -->
@@ -323,7 +366,7 @@ function markClass(m){
   return '';
 }
 
-function cast(){
+function cast(noSave){
   const lon = getLongitude();
   const inp = {
     year:+document.getElementById('y').value,
@@ -337,6 +380,17 @@ function cast(){
   let r;
   try{ r = Qimen.paipan(inp); }
   catch(e){ alert('排盘出错：'+e.message); console.error(e); return; }
+
+  // 记入历史（replay 时跳过）
+  if(noSave!==true){
+    saveHist({
+      ts: Date.now(),
+      inp: inp,
+      locLabel: locLabel(),
+      sz: r.sizhu,
+      juName: r.ju.name
+    });
+  }
 
   // 真太阳时提示条
   const tsBar = document.getElementById('tsBar');
@@ -409,8 +463,100 @@ function cast(){
   });
 }
 
-// 初次自动排一盘（示例）
-window.addEventListener('DOMContentLoaded', cast);
+// ========== 历史记录 ==========
+const HIST_KEY = 'qimen_history_v1';
+const HIST_MAX = 50;
+
+function locLabel(){
+  if(!document.getElementById('tsOn').checked) return '北京时间';
+  const sel = document.getElementById('city');
+  if(sel.value==='__custom') return '东经'+document.getElementById('lon').value+'°';
+  return sel.options[sel.selectedIndex].text.replace(/\s.*$/,''); // 取城市名
+}
+function loadHist(){
+  try{ return JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); }catch(e){ return []; }
+}
+function writeHist(arr){
+  try{ localStorage.setItem(HIST_KEY, JSON.stringify(arr.slice(0,HIST_MAX))); }catch(e){}
+}
+function saveHist(rec){
+  let arr = loadHist();
+  // 同输入（同年月日时分+经度）去重：移除旧的相同记录再插到最前
+  const key = JSON.stringify(rec.inp);
+  arr = arr.filter(x=>JSON.stringify(x.inp)!==key);
+  arr.unshift(rec);
+  writeHist(arr);
+  renderHist();
+}
+function delHist(ts, ev){
+  if(ev) ev.stopPropagation();
+  writeHist(loadHist().filter(x=>x.ts!==ts));
+  renderHist();
+}
+function clearHist(){
+  if(!confirm('确定清空全部历史记录？此操作不可恢复。')) return;
+  writeHist([]);
+  renderHist();
+}
+function replayHist(ts){
+  const rec = loadHist().find(x=>x.ts===ts);
+  if(!rec) return;
+  const i = rec.inp;
+  document.getElementById('y').value = i.year;
+  document.getElementById('mo').value = i.month;
+  document.getElementById('da').value = i.day;
+  document.getElementById('hh').value = i.hour;
+  document.getElementById('mm').value = i.minute;
+  // 还原经度设置
+  if(i.longitude===undefined){
+    document.getElementById('tsOn').checked = false;
+  }else{
+    document.getElementById('tsOn').checked = true;
+    const sel = document.getElementById('city');
+    let matched = false;
+    for(const opt of sel.options){ if(opt.value!=='__custom' && Math.abs(+opt.value - i.longitude)<0.001){ sel.value=opt.value; matched=true; break; } }
+    if(!matched){ sel.value='__custom'; document.getElementById('lon').value = i.longitude; }
+  }
+  onTsToggle(); onCity();
+  cast(true); // 不再重复保存
+  // 把这条提到最前
+  const arr = loadHist(); const found = arr.find(x=>x.ts===ts);
+  if(found){ const rest = arr.filter(x=>x.ts!==ts); rest.unshift(found); writeHist(rest); }
+  renderHist();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderHist(){
+  const arr = loadHist();
+  document.getElementById('histCount').textContent = arr.length;
+  const list = document.getElementById('histList');
+  const empty = document.getElementById('histEmpty');
+  if(arr.length===0){ list.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  list.innerHTML = arr.map(rec=>{
+    const i = rec.inp;
+    const dateStr = `${i.year}-${pad(i.month)}-${pad(i.day)} ${pad(i.hour)}:${pad(i.minute)}`;
+    const savedAt = new Date(rec.ts);
+    const subStr = `存于 ${pad(savedAt.getMonth()+1)}/${pad(savedAt.getDate())} ${pad(savedAt.getHours())}:${pad(savedAt.getMinutes())}`;
+    const szStr = `${rec.sz.year} ${rec.sz.month} ${rec.sz.day} ${rec.sz.hour}`;
+    return `<div class="hist-item" onclick="replayHist(${rec.ts})">
+      <div class="hist-time"><div class="ht-main">${dateStr}</div><div class="ht-sub">${subStr}</div></div>
+      <div class="hist-sz">${szStr}</div>
+      <div class="hist-ju">${rec.juName}</div>
+      <div class="hist-loc">${rec.locLabel}</div>
+      <button class="hist-del" title="删除" onclick="delHist(${rec.ts},event)">×</button>
+    </div>`;
+  }).join('');
+}
+function toggleHist(){
+  const panel = document.getElementById('histPanel');
+  panel.style.display = (panel.style.display==='none') ? 'block' : 'none';
+}
+
+// 初次自动排一盘（示例）；不污染历史
+window.addEventListener('DOMContentLoaded', function(){
+  renderHist();
+  cast(true);
+});
 </script>
 </body>
 </html>
