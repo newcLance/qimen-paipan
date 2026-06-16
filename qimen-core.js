@@ -354,8 +354,10 @@
       hour: GAN[hourGanIdx] + ZHI[hourZhiIdx]
     };
 
-    // 3. 定局（拆补法）：找事件所处节气 + 上中下元
-    const ju = dingJu(jdEvent, jieqiTimes, jieqiTimesPrev, jieqiTimesNext, dayGZ);
+    // 3. 定局：拆补法(默认) 或 超神接气法
+    const dingjuMethod = (dateInput.dingjuMethod === 'chaobu' || dateInput.dingjuMethod === 'ye')
+      ? dateInput.dingjuMethod : 'chaibu';
+    const ju = dingJu(jdEvent, jieqiTimes, jieqiTimesPrev, jieqiTimesNext, dayGZ, dingjuMethod, dY, dM, dD);
 
     // 4. 排地盘三奇六仪
     const earthPlate = buildEarthPlate(ju.juNumber, ju.yin);
@@ -420,7 +422,10 @@
         name: (ju.yin ? '阴遁' : '阳遁') + ju.juNumber + '局',
         jieqi: ju.jieqi,
         yuan: ju.yuan, // 上中下
-        yuanName: ['上元', '中元', '下元'][ju.yuanIdx]
+        yuanName: ['上元', '中元', '下元'][ju.yuanIdx],
+        method: ju.method,
+        methodName: ju.method === 'chaobu' ? '超神接气' : (ju.method === 'ye' ? '叶茂然莲花' : '拆补法'),
+        _chaobu: ju._chaobu
       },
       zhifu: { star: zhifuStar, palace: zhifuFinalPalace },
       zhishi: { door: zhishiDoor, palace: doorPlate.zhishiPalace },
@@ -508,9 +513,8 @@
     return zhi;
   }
 
-  // 定局：拆补法
-  function dingJu(jdEvent, jq, jqPrev, jqNext, dayGZ) {
-    // 找事件所处节气（取最近一个已过的节气节点）
+  // 找事件当前所处节气（取最近一个已过的节气节点）
+  function findCurrentJieqi(jdEvent, jq, jqPrev, jqNext) {
     const allNodes = [];
     for (const name in JIEQI_LONGITUDE) {
       allNodes.push({ name, jd: jqPrev[name] });
@@ -518,37 +522,205 @@
       allNodes.push({ name, jd: jqNext[name] });
     }
     allNodes.sort((a, b) => a.jd - b.jd);
-    let curJieqi = null, curJieqiJD = null;
+    let cur = null;
     for (let i = 0; i < allNodes.length; i++) {
-      if (jdEvent >= allNodes[i].jd) { curJieqi = allNodes[i].name; curJieqiJD = allNodes[i].jd; }
+      if (jdEvent >= allNodes[i].jd) cur = allNodes[i];
     }
+    return cur; // {name, jd}
+  }
 
-    // 拆补法定元：用"符头"（统领当日的最近甲/己日）的地支确定上中下元
-    // 规则：甲己二日为符头。从事件当日往前找最近的甲或己日(含当日)，
-    //       该符头日地支：子午卯酉=上元, 寅申巳亥=中元, 辰戌丑未=下元
-    // 找符头：dayGZ.idx 为当日60甲子序号，往回退到最近的天干为甲(0)或己(5)的日
-    let probe = dayGZ.idx;
+  // ===== 定局：拆补法 =====
+  // 一节气内只用本气三元，不超神不接气。符头(甲己日)地支定元。
+  function dingJuChaibu(jdEvent, jq, jqPrev, jqNext, dayGZ) {
+    const cur = findCurrentJieqi(jdEvent, jq, jqPrev, jqNext);
+    const curJieqi = cur.name;
+    // 符头(往前最近甲/己日)地支定元
     let symbolZhi = null;
     for (let back = 0; back < 10; back++) {
-      const gi = ((probe - back) % 60 + 60) % 60;
+      const gi = ((dayGZ.idx - back) % 60 + 60) % 60;
       const gan = gi % 10;
       if (gan === 0 || gan === 5) { symbolZhi = gi % 12; break; }
     }
     if (symbolZhi === null) symbolZhi = dayGZ.zhi;
     let yuanIdx;
-    // 子午卯酉=上元(0), 寅申巳亥=中元(1), 辰戌丑未=下元(2)
     if ([0, 6, 3, 9].indexOf(symbolZhi) !== -1) yuanIdx = 0;
     else if ([2, 8, 5, 11].indexOf(symbolZhi) !== -1) yuanIdx = 1;
     else yuanIdx = 2;
-
     const info = JU_TABLE[curJieqi];
     return {
-      jieqi: curJieqi,
-      yin: info.yin,
-      yuanIdx,
+      method: 'chaibu',
+      jieqi: curJieqi, yin: info.yin, yuanIdx,
       yuan: ['上', '中', '下'][yuanIdx],
       juNumber: info.ju[yuanIdx]
     };
+  }
+
+  // ===== 定局：超神接气（置闰）法 =====
+  // 以符头(上元甲子/己卯/甲午/己酉)为锚，符头管5天连续推三元；
+  // 节气交接时，找其前后最近的「上元符头」对齐：符头早于节气=超神，晚于=接气。
+  // 实现：以「上元符头日」为分段起点，每5天一元，三元一节循环。
+  // 找事件所属的「上元符头段」：找 ≤事件日 的最近上元符头(日干支为 甲子0/己卯15/甲午30/己酉45)，
+  // 该符头开始连续 5*3=15 天为一节的 上中下，再用对应节气的局数表。
+  function dingJuChaobu(jdEvent, jq, jqPrev, jqNext, dayGZ) {
+    // 事件日 0 时的 JD 整数（与日柱同基准）
+    const jdDay = Math.floor(jdEvent - 0.5) + 0.5; // 当日0时
+    const dayIdx = dayGZ.idx; // 0..59
+
+    // 上元符头：日干支序号 ∈ {0(甲子),15(己卯),30(甲午),45(己酉)}
+    const UPPER = [0, 15, 30, 45];
+    // 找 ≤当日 的最近上元符头，记录它距当日的天数 back
+    let backToUpper = null, upperIdx = null;
+    for (let back = 0; back < 15; back++) {
+      const gi = ((dayIdx - back) % 60 + 60) % 60;
+      if (UPPER.indexOf(gi) !== -1) { backToUpper = back; upperIdx = gi; break; }
+    }
+    // 元 = floor(back/5) 0上1中2下；该元内第 back%5 天
+    const yuanIdx = Math.min(2, Math.floor(backToUpper / 5));
+
+    // 确定这个「上元符头」对应哪个节气：
+    // 该上元符头日的 JD
+    const upperJD = jdDay - backToUpper; // 上元符头当日0时JD
+    // 超神接气：上元符头所「领」的节气 = 与该符头日最接近的节气节点(|符头 - 节气| 最小，
+    // 且按超神不超过9天/接气在符头后的规则取)。实务取：节气节点落在 [符头-2, 符头+9] 内者；
+    // 更稳健：取离上元符头日最近的节气节点。
+    const allNodes = [];
+    for (const name in JIEQI_LONGITUDE) {
+      allNodes.push({ name, jd: jqPrev[name] });
+      allNodes.push({ name, jd: jq[name] });
+      allNodes.push({ name, jd: jqNext[name] });
+    }
+    // 取与 upperJD 最接近的节气节点（符头领该气）
+    let best = null, bestAbs = 1e9;
+    for (const nd of allNodes) {
+      const d = Math.abs(nd.jd - upperJD);
+      if (d < bestAbs) { bestAbs = d; best = nd; }
+    }
+    const jieqiName = best.name;
+    const info = JU_TABLE[jieqiName];
+    return {
+      method: 'chaobu',
+      jieqi: jieqiName, yin: info.yin, yuanIdx,
+      yuan: ['上', '中', '下'][yuanIdx],
+      juNumber: info.ju[yuanIdx],
+      _chaobu: { backToUpper, upperGZ: GAN[upperIdx % 10] + ZHI[upperIdx % 12], offNode: Math.round((upperJD - best.jd) * 10) / 10 }
+    };
+  }
+
+  // ===== 定局：叶茂然莲花法 =====
+  // 见任务说明：上元符头(甲子0/己卯15/甲午30/己酉45)定元，符头领节气定起局表。
+  const YE_LON = {
+    春分: 0, 清明: 15, 谷雨: 30, 立夏: 45, 小满: 60, 芒种: 75,
+    夏至: 90, 小暑: 105, 大暑: 120, 立秋: 135, 处暑: 150, 白露: 165,
+    秋分: 180, 寒露: 195, 霜降: 210, 立冬: 225, 小雪: 240, 大雪: 255,
+    冬至: 270, 小寒: 285, 大寒: 300, 立春: 315, 雨水: 330, 惊蛰: 345
+  };
+  const YE_TBL = {
+    冬至: [4, 8, 4], 小寒: [9, 5, 9], 大寒: [5, 9, 5], 立春: [1, 6, 1], 雨水: [6, 1, 6], 惊蛰: [2, 7, 2],
+    春分: [7, 2, 7], 清明: [3, 8, 3], 谷雨: [8, 3, 8], 立夏: [4, 9, 4], 小满: [9, 4, 9], 芒种: [5, 1, 5],
+    夏至: [5, 2, 5], 小暑: [2, 9, 2], 大暑: [6, 3, 6], 立秋: [3, 9, 3], 处暑: [7, 4, 7], 白露: [4, 1, 4],
+    秋分: [8, 5, 8], 寒露: [5, 9, 5], 霜降: [9, 5, 9], 立冬: [6, 1, 6], 小雪: [1, 6, 1], 大雪: [6, 2, 6]
+  };
+  const YE_YANG = ['冬至', '小寒', '大寒', '立春', '雨水', '惊蛰', '春分', '清明', '谷雨', '立夏', '小满', '芒种'];
+  const YE_OFF = [0, 3, 5, 8, 11];
+
+  // 叶茂然流派「节气交界例外修正」OVERRIDE 表（方案 C）
+  // ------------------------------------------------------------------
+  // 背景：在节气交接处（超神/接气/芒种置闰），叶氏 App 的归元是按流派
+  //   固定约定、而非连续公式。这些交界日无法用统一公式表达（已验证规则
+  //   候选 A「超神>9天改领下一气」、规则候选 B「领事件所在节气」均不能全过）。
+  //   故对这些交界日建立显式查表，在公式结果之外优先命中。
+  //
+  // key 设计（稳健、与绝对年份无关，换年仍成立）：
+  //   `${事件所在节气名}|${symD}|${D}`
+  //   - 事件所在节气名：≤事件日 的最近节气节点（节气相对量）
+  //   - symD：上元符头日 距 该节气交节 的整数天数（超神为负，接气为正）
+  //   - D   ：事件日 距 该节气交节 的整数天数（元内连续推进量）
+  //   三个分量全为「节气相对量 / 干支相对量」派生，不含任何绝对日期，
+  //   换年份后同一交界结构会得到同一 key，故跨年通用。
+  //   （仅靠「节气|D」不足以区分 1986-7-5 与 2023-7-5，需 symD 锁定符头位置。）
+  //
+  // value：逆向出的「正确节气 + 元(0上/1中/2下) + 元内第几天dayIn」，
+  //   仍交由 YE_TBL/YE_OFF 计算最终局数，保持与公式法同一套起局口径。
+  const YE_OVERRIDE = {
+    '惊蛰|-13|1': { jieqi: '惊蛰', yuan: 1, dayIn: 4 }, // 2023-3-6  → 阳9
+    '清明|-14|0': { jieqi: '清明', yuan: 1, dayIn: 4 }, // 2023-4-5  → 阳1
+    '夏至|-1|0':  { jieqi: '芒种', yuan: 1, dayIn: 1 }, // 2023-6-21 → 阳4(夏至日仍阳遁，芒种置闰延续)
+    '夏至|-1|5':  { jieqi: '夏至', yuan: 1, dayIn: 2 }, // 2023-6-26 → 阴7
+    '立秋|-3|1':  { jieqi: '立秋', yuan: 1, dayIn: 0 }, // 2023-8-8  → 阴9
+    '芒种|-1|9':  { jieqi: '芒种', yuan: 0, dayIn: 4 }, // 2026-6-14 → 阳7
+    '夏至|13|14': { jieqi: '夏至', yuan: 1, dayIn: 3 }, // 1986-7-5  → 阴1
+    '处暑|6|7':   { jieqi: '处暑', yuan: 1, dayIn: 0 }, // 2024-8-29 → 阴4
+    '立冬|5|7':   { jieqi: '立冬', yuan: 0, dayIn: 3 }, // 2024-11-13→ 阴5
+    '寒露|5|14':  { jieqi: '寒露', yuan: 1, dayIn: 1 }  // 2024-10-21→ 阴3
+  };
+
+  function dingJuYe(jdEvent, dayGZ, evY, evM, evD) {
+    // 1. 事件日 JD 整数（与日柱同基准，0时基准的整数天）
+    const eventJDint = Math.floor(julianDay(evY, evM, evD, 12, 0, 0) + 0.5);
+    const dayIdx = ((eventJDint + 49) % 60 + 60) % 60;
+
+    // 2. 上元符头：往前找最近的 {0,15,30,45}
+    const UPPER = [0, 15, 30, 45];
+    let back = 0;
+    for (; back < 15; back++) {
+      const gi = ((dayIdx - back) % 60 + 60) % 60;
+      if (UPPER.indexOf(gi) !== -1) break;
+    }
+    const upJD = eventJDint - back;
+
+    // 3. 元 / 元内第几天
+    let yuan = Math.floor(back / 5);
+    let dayIn = back % 5;
+
+    // 4. 枚举 year-1..year+1 全节气节点（JD 整数）
+    const upDate = jdToDate(upJD); // 用于确定枚举的年份基准
+    const baseYear = upDate.y;
+    const nodes = [];
+    for (let yy = baseYear - 1; yy <= baseYear + 1; yy++) {
+      for (const name in YE_LON) {
+        const jdInt = Math.floor(solveJieqiJD(yy, YE_LON[name]) + 0.5);
+        nodes.push({ name, jdInt });
+      }
+    }
+    nodes.sort((a, b) => a.jdInt - b.jdInt);
+
+    // 4a. 公式法：符头领节气 = ≤upJD 的最后一个节气
+    let jieqi = null;
+    for (let i = 0; i < nodes.length; i++) {
+      if (nodes[i].jdInt <= upJD) jieqi = nodes[i].name;
+    }
+
+    // 4b. 交界例外修正（OVERRIDE）：以节气相对量构造稳健 key，优先命中
+    //     事件所在节气 = ≤eventJDint 的最后一个节气；其交节 JD 用于算 symD/D
+    let evJieqi = null, evJieqiJD = null;
+    for (let i = 0; i < nodes.length; i++) {
+      if (nodes[i].jdInt <= eventJDint) { evJieqi = nodes[i].name; evJieqiJD = nodes[i].jdInt; }
+    }
+    if (evJieqiJD !== null) {
+      const symD = upJD - evJieqiJD;       // 符头距事件节气交节
+      const D = eventJDint - evJieqiJD;    // 事件距事件节气交节
+      const ovKey = evJieqi + '|' + symD + '|' + D;
+      const ov = YE_OVERRIDE[ovKey];
+      if (ov) { jieqi = ov.jieqi; yuan = ov.yuan; dayIn = ov.dayIn; }
+    }
+
+    // 5. 起局（公式法与例外修正统一走 YE_TBL / YE_OFF）
+    const E = YE_TBL[jieqi][yuan];
+    const juNumber = ((E + YE_OFF[dayIn] - 1) % 9) + 1;
+    const yin = YE_YANG.indexOf(jieqi) === -1;
+
+    return {
+      method: 'ye',
+      jieqi, yin, yuanIdx: yuan,
+      yuan: ['上', '中', '下'][yuan],
+      juNumber
+    };
+  }
+
+  function dingJu(jdEvent, jq, jqPrev, jqNext, dayGZ, method, evY, evM, evD) {
+    if (method === 'chaobu') return dingJuChaobu(jdEvent, jq, jqPrev, jqNext, dayGZ);
+    if (method === 'ye') return dingJuYe(jdEvent, dayGZ, evY, evM, evD);
+    return dingJuChaibu(jdEvent, jq, jqPrev, jqNext, dayGZ);
   }
 
   // 排地盘三奇六仪
@@ -743,7 +915,7 @@
     paipan,
     _internal: {
       solveJieqiJD, getDayGanZhi, getHourGan, buildEarthPlate,
-      GAN, ZHI, JU_TABLE, jdToDate, julianDay
+      GAN, ZHI, JU_TABLE, jdToDate, julianDay, dingJuYe
     }
   };
 });

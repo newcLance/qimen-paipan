@@ -136,12 +136,18 @@
   .cell-pal{font-weight:600;color:var(--jade);letter-spacing:1px}
   .cell-dir{font-size:10px}
   /* 神/星/门 行 */
-  .row-shen{font-size:12.5px;color:var(--gold);letter-spacing:1px;margin-top:3px;min-height:18px;font-weight:600;text-align:left}
-  .row-star{font-size:13px;color:var(--ink);letter-spacing:1px;margin-top:1px;text-align:left}
+  .row-shen{font-size:12.5px;letter-spacing:1px;margin-top:3px;min-height:18px;font-weight:600;text-align:left}
+  .row-star{font-size:13px;letter-spacing:1px;margin-top:1px;text-align:left;font-weight:600}
   .row-door{font-size:13px;letter-spacing:1px;margin-top:1px;font-weight:600;text-align:left;display:flex;align-items:center;gap:5px}
+  .row-shen{color:#8a8275}
   .door-name{display:inline-flex;align-items:center}
-  .door-ji{color:var(--jade)}
-  .door-xiong{color:var(--cinnabar)}
+  /* 红蓝绿三色：红=吉、绿=凶、蓝=中平（对齐叶茂然 App） */
+  .lucky-ji{color:#c0392b}      /* 红：吉 */
+  .lucky-xiong{color:#2f7a44}   /* 绿：凶 */
+  .lucky-ping{color:#2c6fb0}    /* 蓝：中平 */
+  /* 旧门色类保留以防其他引用 */
+  .door-ji{color:#c0392b}
+  .door-xiong{color:#2f7a44}
   /* 门迫：门名描边框柱 + 旁边小标签 */
   .door-name.is-po{
     border:1px solid #c79a55;border-radius:5px;padding:0 5px;
@@ -196,7 +202,7 @@
   <header class="site">
     <div class="seal">奇</div>
     <h1 class="title">莲花派奇门遁甲</h1>
-    <div class="subtitle">时家转盘 · 拆补法定局 · 在线排盘</div>
+    <div class="subtitle">时家转盘 · 叶茂然定局 · 在线排盘</div>
     <div class="lineage">莲花十二宫</div>
   </header>
 
@@ -212,6 +218,17 @@
         <button class="btn-now" onclick="useNow()">此刻</button>
         <button class="btn-cast" onclick="cast()">起　局</button>
       </div>
+    </div>
+    <div class="form-row" style="margin-top:14px;align-items:flex-end">
+      <div class="field">
+        <label>定局法</label>
+        <select id="dingju" onchange="cast()">
+          <option value="ye">叶茂然莲花</option>
+          <option value="chaibu">拆补法</option>
+          <option value="chaobu">超神接气</option>
+        </select>
+      </div>
+      <span style="font-size:11.5px;color:var(--ink-soft);padding-bottom:10px;line-height:1.5" id="dingjuHint">叶茂然莲花派口径，每日换局</span>
     </div>
     <div class="form-row" style="margin-top:14px;align-items:center">
       <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-soft);cursor:pointer">
@@ -300,14 +317,14 @@
       </div>
       <div class="note">
         <b style="color:var(--jade)">读盘次第</b><br>
-        每宫左侧自上而下：<b>神盘</b>（八神，金字色）→ <b>天盘九星</b> → <b>人盘八门</b>；右下角竖排干字，上为<b style="color:var(--cinnabar)">天盘干</b>、下为<b>地盘干</b>。<br>
-        门色：<span class="door-ji">绿</span>为吉门（开休生），<span class="door-xiong">朱</span>为凶门（死惊伤）。
+        每宫左侧自上而下：<b>神盘</b>（八神）→ <b>天盘九星</b> → <b>人盘八门</b>；右下角竖排干字，上为<b style="color:var(--cinnabar)">天盘干</b>、下为<b>地盘干</b>。<br>
+        <b style="color:var(--jade)">三色吉凶</b>（神/星/门通用）：<span class="lucky-ji">红＝吉</span> · <span class="lucky-xiong">绿＝凶</span> · <span class="lucky-ping">蓝＝中平</span>。
       </div>
     </aside>
   </div>
 
   <footer>
-    莲花派时家转盘奇门 · 拆补法定局 · 支持真太阳时（经度+均时差）校正<br>
+    莲花派时家转盘奇门 · 叶茂然/拆补/超神接气 三种定局 · 支持真太阳时（经度+均时差）校正<br>
     <span class="disc">本工具仅供传统术数文化研究与学习，所排盘面不构成任何决策建议。</span>
   </footer>
 </div>
@@ -315,8 +332,16 @@
 <script src="qimen-core.js"></script>
 <script>
 const GAN_WX = {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
-const JI_DOOR = ['开','休','生'];      // 吉门
-const XIONG_DOOR = ['死','惊','伤'];   // 凶门
+// 红蓝绿三色吉凶分类（对齐叶茂然 App：红吉/绿凶/蓝中平）
+// 八门：开休生=吉(红)，死惊伤=凶(绿)，杜景=中平(蓝)
+const DOOR_LUCK = {'开':'ji','休':'ji','生':'ji','死':'xiong','惊':'xiong','伤':'xiong','杜':'ping','景':'ping'};
+// 九星：天心天任天辅(及天禽)=吉(红)，天蓬天芮天柱=凶(绿)，天冲天英=中平(蓝)
+const STAR_LUCK = {'天心':'ji','天任':'ji','天辅':'ji','天禽':'ji','天蓬':'xiong','天芮':'xiong','天柱':'xiong','天冲':'ping','天英':'ping'};
+// 八神：值符太阴六合九天九地=吉(红)，螣蛇白虎玄武=凶(绿)
+const SHEN_LUCK = {'值符':'ji','太阴':'ji','六合':'ji','九天':'ji','九地':'ji','螣蛇':'xiong','白虎':'xiong','玄武':'xiong'};
+function luckCls(map,key){const l=map[key];return l?('lucky-'+l):'';}
+const JI_DOOR = ['开','休','生'];
+const XIONG_DOOR = ['死','惊','伤'];
 // 九宫在3x3网格的位置：洛书 巽4离9坤2 / 震3中5兑7 / 艮8坎1乾6
 const GRID_LAYOUT = [4,9,2, 3,5,7, 8,1,6];
 
@@ -366,14 +391,22 @@ function markClass(m){
   return '';
 }
 
+const DINGJU_HINT = {
+  ye:'叶茂然莲花派口径，每日换局',
+  chaibu:'拆补法：一节气内只用本气三元，不超神接气',
+  chaobu:'超神接气：符头领节气，超神/接气定局'
+};
 function cast(noSave){
   const lon = getLongitude();
+  const dj = document.getElementById('dingju').value;
+  document.getElementById('dingjuHint').textContent = DINGJU_HINT[dj]||'';
   const inp = {
     year:+document.getElementById('y').value,
     month:+document.getElementById('mo').value,
     day:+document.getElementById('da').value,
     hour:+document.getElementById('hh').value,
-    minute:+document.getElementById('mm').value
+    minute:+document.getElementById('mm').value,
+    dingjuMethod: dj
   };
   if(lon!==null) inp.longitude = lon;
   if(!inp.year||!inp.month||!inp.day){alert('请输入完整的公历日期');return;}
@@ -388,7 +421,8 @@ function cast(noSave){
       inp: inp,
       locLabel: locLabel(),
       sz: r.sizhu,
-      juName: r.ju.name
+      juName: r.ju.name,
+      methodName: r.ju.methodName
     });
   }
 
@@ -414,7 +448,7 @@ function cast(noSave){
   document.getElementById('sizhu').innerHTML =
     [['年',sz.year],['月',sz.month],['日',sz.day],['时',sz.hour]]
       .map(([k,v])=>`<div class="z"><span style="font-size:17px">${v}</span><small>${k}柱</small></div>`).join('');
-  document.getElementById('juName').textContent = r.ju.name;
+  document.getElementById('juName').innerHTML = r.ju.name + `<span style="font-size:11px;color:var(--ink-soft);font-weight:400;margin-left:6px">${r.ju.methodName||''}</span>`;
   document.getElementById('jieqi').textContent = r.ju.jieqi+' · '+r.ju.yuanName;
   document.getElementById('fushi').textContent = r.zhifu.star+' / '+r.zhishi.door+'门';
   document.getElementById('extra').innerHTML =
@@ -430,7 +464,7 @@ function cast(noSave){
     if(p===5){
       cell.innerHTML = `
         <div class="cell-pal" style="font-size:13px">中 五 宫</div>
-        <div class="row-star" style="margin-top:6px;font-size:14px">${g.star}</div>
+        <div class="row-star ${luckCls(STAR_LUCK,g.star)}" style="margin-top:6px;font-size:14px">${g.star}</div>
         <div class="gan-zone" style="position:static;margin-top:8px" title="上为天盘干，下为地盘干（寄宫）">
           ${g.skyGan?`<span class="gan-sky">${g.skyGan}</span>`:''}
           ${g.earthGan?`<span class="gan-earth">${g.earthGan}</span>`:''}
@@ -438,7 +472,7 @@ function cast(noSave){
       plate.appendChild(cell);
       return;
     }
-    const doorCls = JI_DOOR.includes(g.door)?'door-ji':(XIONG_DOOR.includes(g.door)?'door-xiong':'');
+    const doorCls = luckCls(DOOR_LUCK, g.door);
     const isPo = g.marks.includes('门迫');
     // 门迫不再进入左下角 marks，改为贴在八门行
     const otherMarks = g.marks.filter(m=>m!=='门迫');
@@ -451,8 +485,8 @@ function cast(noSave){
         <span class="cell-pal">${p}·${g.name}</span>
         <span class="cell-dir">${g.dir}</span>
       </div>
-      <div class="row-shen">${g.shen||''}</div>
-      <div class="row-star">${g.star||''}</div>
+      <div class="row-shen ${luckCls(SHEN_LUCK,g.shen)}">${g.shen||''}</div>
+      <div class="row-star ${luckCls(STAR_LUCK,g.star)}">${g.star||''}</div>
       <div class="row-door">${doorInner}</div>
       <div class="gan-zone" title="上为天盘干，下为地盘干">
         <span class="gan-sky">${g.skyGan||'·'}</span>
@@ -507,6 +541,7 @@ function replayHist(ts){
   document.getElementById('da').value = i.day;
   document.getElementById('hh').value = i.hour;
   document.getElementById('mm').value = i.minute;
+  if(i.dingjuMethod) document.getElementById('dingju').value = i.dingjuMethod;
   // 还原经度设置
   if(i.longitude===undefined){
     document.getElementById('tsOn').checked = false;
