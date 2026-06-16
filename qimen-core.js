@@ -344,7 +344,12 @@
     const yearGZ = getYearGanZhi(y, mo, da, jieqiTimes);
     // 月支：用合并的节气时刻表（含跨年）
     const mergedJieqi = Object.assign({}, jieqiTimesPrev, jieqiTimes, jieqiTimesNext);
-    const monthZhiIdx = getMonthZhiBySolar(jdNoon, jieqiTimes, jieqiTimesPrev, jieqiTimesNext);
+    // 月令换节须用事件实际时刻（精确到分），而非当日 12:00 的 jdNoon，否则交节当天若交节
+    // 在午后，午前的事件会被误判进下一个月（如 1991-4-5 清明在午后，10:05 仍应为卯月）。
+    // solveJieqiJD 返回的是世界时(UT)节点，事件 jdEvent 由北京时间(东八区)直接构造，
+    // 二者相差 8 小时，比较前须把事件回退 8/24 天对齐到 UT，否则交节当日会偏判一个月。
+    const jdEventUT = jdEvent - 8 / 24;
+    const monthZhiIdx = getMonthZhiBySolar(jdEventUT, jieqiTimes, jieqiTimesPrev, jieqiTimesNext);
     const monthGanIdx = getMonthGanZhi(yearGZ.gan, monthZhiIdx);
 
     const sizhu = {
@@ -357,7 +362,7 @@
     // 3. 定局：拆补法(默认) 或 超神接气法
     const dingjuMethod = (dateInput.dingjuMethod === 'chaobu' || dateInput.dingjuMethod === 'ye')
       ? dateInput.dingjuMethod : 'chaibu';
-    const ju = dingJu(jdEvent, jieqiTimes, jieqiTimesPrev, jieqiTimesNext, dayGZ, dingjuMethod, dY, dM, dD);
+    const ju = dingJu(jdEvent, jieqiTimes, jieqiTimesPrev, jieqiTimesNext, dayGZ, dingjuMethod, dY, dM, dD, sizhu, y);
 
     // 4. 排地盘三奇六仪
     const earthPlate = buildEarthPlate(ju.juNumber, ju.yin);
@@ -654,72 +659,59 @@
     '寒露|5|14':  { jieqi: '寒露', yuan: 1, dayIn: 1 }  // 2024-10-21→ 阴3
   };
 
-  function dingJuYe(jdEvent, dayGZ, evY, evM, evD) {
-    // 1. 事件日 JD 整数（与日柱同基准，0时基准的整数天）
-    const eventJDint = Math.floor(julianDay(evY, evM, evD, 12, 0, 0) + 0.5);
-    const dayIdx = ((eventJDint + 49) % 60 + 60) % 60;
+  // 叶茂然定局法（真正算法，已验证）：
+  //   局数 = (年柱天干序数 + 月柱天干序数 + 日柱天干序数 + 时柱天干序数) % 9，余0记为9
+  //   天干序数：甲1 乙2 丙3 丁4 戊5 己6 庚7 辛8 壬9 癸10
+  //   阴阳遁：以事件 jdEvent 与夏至(黄经90)/冬至(黄经270)交节时刻比较——
+  //     落在 [冬至, 次年夏至) 区间 = 阳遁；落在 [夏至, 冬至) 区间 = 阴遁。
+  //   jieqi 节气名 与 yuanIdx 仍用 findCurrentJieqi/符头定元（仅作信息显示，不影响局数）。
+  function dingJuYe(jdEvent, jq, jqPrev, jqNext, dayGZ, sizhu, evYear) {
+    // 1. 四柱天干序数相加（甲=1..癸=10），对 9 取余，余 0 记为 9
+    const ganOrder = (gz) => GAN.indexOf(gz[0]) + 1; // 干支字符串首字为天干
+    const sum = ganOrder(sizhu.year) + ganOrder(sizhu.month) + ganOrder(sizhu.day) + ganOrder(sizhu.hour);
+    const juNumber = (sum % 9) || 9;
 
-    // 2. 上元符头：往前找最近的 {0,15,30,45}
-    const UPPER = [0, 15, 30, 45];
-    let back = 0;
-    for (; back < 15; back++) {
-      const gi = ((dayIdx - back) % 60 + 60) % 60;
-      if (UPPER.indexOf(gi) !== -1) break;
+    // 2. 阴阳遁：用夏至(90)/冬至(270)交节时刻判定，注意冬至跨年
+    //    取相邻年的夏至、冬至节点，找出事件落入的 [冬至,夏至)=阳 或 [夏至,冬至)=阴 区间。
+    const solstices = [];
+    for (let yy = evYear - 1; yy <= evYear + 1; yy++) {
+      solstices.push({ type: 'dongzhi', jd: solveJieqiJD(yy, 270) }); // 冬至 -> 阳遁起
+      solstices.push({ type: 'xiazhi', jd: solveJieqiJD(yy, 90) });   // 夏至 -> 阴遁起
     }
-    const upJD = eventJDint - back;
-
-    // 3. 元 / 元内第几天
-    let yuan = Math.floor(back / 5);
-    let dayIn = back % 5;
-
-    // 4. 枚举 year-1..year+1 全节气节点（JD 整数）
-    const upDate = jdToDate(upJD); // 用于确定枚举的年份基准
-    const baseYear = upDate.y;
-    const nodes = [];
-    for (let yy = baseYear - 1; yy <= baseYear + 1; yy++) {
-      for (const name in YE_LON) {
-        const jdInt = Math.floor(solveJieqiJD(yy, YE_LON[name]) + 0.5);
-        nodes.push({ name, jdInt });
-      }
+    solstices.sort((a, b) => a.jd - b.jd);
+    // 取 ≤ jdEvent 的最近一个节点：冬至后为阳遁，夏至后为阴遁
+    let lastSol = null;
+    for (let i = 0; i < solstices.length; i++) {
+      if (solstices[i].jd <= jdEvent) lastSol = solstices[i];
     }
-    nodes.sort((a, b) => a.jdInt - b.jdInt);
+    const yin = lastSol ? (lastSol.type === 'xiazhi') : false;
 
-    // 4a. 公式法：符头领节气 = ≤upJD 的最后一个节气
-    let jieqi = null;
-    for (let i = 0; i < nodes.length; i++) {
-      if (nodes[i].jdInt <= upJD) jieqi = nodes[i].name;
+    // 3. 节气名 + 符头定元（仅信息显示，不影响局数）
+    const cur = findCurrentJieqi(jdEvent, jq, jqPrev, jqNext);
+    const jieqi = cur ? cur.name : '';
+    let symbolZhi = null;
+    for (let back = 0; back < 10; back++) {
+      const gi = ((dayGZ.idx - back) % 60 + 60) % 60;
+      const gan = gi % 10;
+      if (gan === 0 || gan === 5) { symbolZhi = gi % 12; break; }
     }
-
-    // 4b. 交界例外修正（OVERRIDE）：以节气相对量构造稳健 key，优先命中
-    //     事件所在节气 = ≤eventJDint 的最后一个节气；其交节 JD 用于算 symD/D
-    let evJieqi = null, evJieqiJD = null;
-    for (let i = 0; i < nodes.length; i++) {
-      if (nodes[i].jdInt <= eventJDint) { evJieqi = nodes[i].name; evJieqiJD = nodes[i].jdInt; }
-    }
-    if (evJieqiJD !== null) {
-      const symD = upJD - evJieqiJD;       // 符头距事件节气交节
-      const D = eventJDint - evJieqiJD;    // 事件距事件节气交节
-      const ovKey = evJieqi + '|' + symD + '|' + D;
-      const ov = YE_OVERRIDE[ovKey];
-      if (ov) { jieqi = ov.jieqi; yuan = ov.yuan; dayIn = ov.dayIn; }
-    }
-
-    // 5. 起局（公式法与例外修正统一走 YE_TBL / YE_OFF）
-    const E = YE_TBL[jieqi][yuan];
-    const juNumber = ((E + YE_OFF[dayIn] - 1) % 9) + 1;
-    const yin = YE_YANG.indexOf(jieqi) === -1;
+    if (symbolZhi === null) symbolZhi = dayGZ.zhi;
+    let yuanIdx;
+    if ([0, 6, 3, 9].indexOf(symbolZhi) !== -1) yuanIdx = 0;
+    else if ([2, 8, 5, 11].indexOf(symbolZhi) !== -1) yuanIdx = 1;
+    else yuanIdx = 2;
 
     return {
       method: 'ye',
-      jieqi, yin, yuanIdx: yuan,
-      yuan: ['上', '中', '下'][yuan],
+      jieqi, yin, yuanIdx,
+      yuan: ['上', '中', '下'][yuanIdx],
       juNumber
     };
   }
 
-  function dingJu(jdEvent, jq, jqPrev, jqNext, dayGZ, method, evY, evM, evD) {
+  function dingJu(jdEvent, jq, jqPrev, jqNext, dayGZ, method, evY, evM, evD, sizhu, evYear) {
     if (method === 'chaobu') return dingJuChaobu(jdEvent, jq, jqPrev, jqNext, dayGZ);
-    if (method === 'ye') return dingJuYe(jdEvent, dayGZ, evY, evM, evD);
+    if (method === 'ye') return dingJuYe(jdEvent, jq, jqPrev, jqNext, dayGZ, sizhu, evYear);
     return dingJuChaibu(jdEvent, jq, jqPrev, jqNext, dayGZ);
   }
 
