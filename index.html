@@ -127,7 +127,7 @@
   }
   .cell{
     position:relative;background:var(--cell);border:1px solid var(--line);
-    border-radius:11px;padding:8px 8px 6px;display:flex;flex-direction:column;
+    border-radius:11px;padding:8px 44px 8px 8px;display:flex;flex-direction:column;
     min-height:0;overflow:hidden;transition:.15s;
   }
   .cell:hover{border-color:var(--jade-soft);box-shadow:0 0 0 2px rgba(90,132,117,.12)}
@@ -160,14 +160,14 @@
   }
   /* 干区：天地盘干竖排在右下角，天盘干在上、地盘干在下 */
   .gan-zone{
-    position:absolute;right:9px;bottom:7px;
+    position:absolute;right:9px;bottom:6px;
     display:flex;flex-direction:column;align-items:center;gap:1px;
   }
   .gan-sky{font-size:20px;font-weight:700;color:var(--cinnabar);font-family:"KaiTi","STKaiti",serif;line-height:1.05}
   .gan-earth{font-size:20px;font-weight:700;color:var(--ink);font-family:"KaiTi","STKaiti",serif;line-height:1.05}
-  /* 标注：移到左下角，避免与右下角天地盘干冲突 */
-  .marks{position:absolute;bottom:5px;left:6px;display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-start;max-width:60%}
-  .mark{font-size:9px;padding:1px 5px;border-radius:5px;letter-spacing:.5px;line-height:1.5;white-space:nowrap}
+  /* 标注：左下角，右侧留出天地盘干列（44px），可换行不覆盖干/星/门 */
+  .marks{position:absolute;left:8px;right:44px;bottom:6px;display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-start;align-items:flex-end}
+  .mark{font-size:9px;padding:1px 5px;border-radius:5px;letter-spacing:.5px;line-height:1.5;white-space:nowrap;flex-shrink:0}
   .mark.kong{background:#eceae3;color:#8a8275;border:1px dashed #c3bbab}
   .mark.ma{background:#eaf1ee;color:var(--jade);border:1px solid #bcd4cb}
   .mark.mu{background:#f3e9e2;color:#8a5a36;border:1px solid #d8c0aa}
@@ -194,6 +194,25 @@
     .info-cell{min-width:50%}
     .btns{margin-left:0;width:100%}
     .btns button{flex:1}
+    /* 移动端：盘不再强制正方形，宫格高度放开，标注独占左下、干在右下 */
+    .plate{aspect-ratio:auto;gap:6px;padding:7px}
+    .cell{padding:7px 38px 7px 7px;min-height:112px}
+    .cell-top{font-size:10px}
+    .row-shen{font-size:11.5px;min-height:16px;margin-top:2px}
+    .row-star{font-size:12px}
+    .row-door{font-size:12px}
+    .gan-sky,.gan-earth{font-size:17px}
+    .gan-zone{right:7px;bottom:6px}
+    .marks{left:6px;right:38px;bottom:5px;gap:2px}
+    .mark{font-size:8.5px;padding:1px 4px}
+    .door-po-tag{font-size:8.5px;padding:1px 4px}
+  }
+  /* 超窄屏（小手机）进一步压缩 */
+  @media (max-width:420px){
+    .cell{min-height:104px;padding:6px 34px 6px 6px}
+    .gan-sky,.gan-earth{font-size:16px}
+    .marks{right:34px}
+    .mark{font-size:8px;padding:0 4px}
   }
 </style>
 </head>
