@@ -187,6 +187,8 @@
   .gan-earth{font-size:20px;font-weight:700;color:var(--ink);font-family:"KaiTi","STKaiti",serif;line-height:1.05;white-space:nowrap}
   /* 寄宫并列两字时缩窄，避免溢出 */
   .gan-sky.two,.gan-earth.two{font-size:15px;letter-spacing:0}
+  /* 天盘干入墓：标绿（凶） */
+  .gan-sky.gan-mu{color:#2f7a44}
   /* 标注：左下角，右侧留出天地盘干列（44px），可换行不覆盖干/星/门 */
   .marks{position:absolute;left:8px;right:44px;bottom:6px;display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-start;align-items:flex-end}
   .mark{font-size:9px;padding:1px 5px;border-radius:5px;letter-spacing:.5px;line-height:1.5;white-space:nowrap;flex-shrink:0}
@@ -470,6 +472,8 @@ function cast(noSave){
     // 叶盘并列顺序：寄入的天禽干在前，本宫干在后（如 丙壬）
     const skyText  = (g.jiSky   || '') + (g.skyGan||'·');
     const earthText= (g.jiEarth || '') + (g.earthGan||'·');
+    // 入墓：该宫天盘干入墓，天盘干标绿（凶）
+    const skyMuCls = g.marks.includes('入墓') ? 'gan-mu' : '';
     cell.innerHTML = `
       <div class="cell-top">
         <span class="cell-pal">${p}·${g.name}</span>
@@ -479,7 +483,7 @@ function cast(noSave){
       <div class="row-star ${luckCls(STAR_LUCK,g.star)}">${g.star||''}</div>
       <div class="row-door">${doorInner}</div>
       <div class="gan-zone" title="上为天盘干，下为地盘干">
-        <span class="gan-sky ${skyText.length>1?'two':''}">${skyText}</span>
+        <span class="gan-sky ${skyText.length>1?'two':''} ${skyMuCls}">${skyText}</span>
         <span class="gan-earth ${earthText.length>1?'two':''}">${earthText}</span>
       </div>
       <div class="marks">${marksHtml}</div>`;
