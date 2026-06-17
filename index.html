@@ -260,33 +260,6 @@
       </div>
       <span style="font-size:11.5px;color:var(--ink-soft);padding-bottom:10px;line-height:1.5">莲花派定局 · 四柱天干定局</span>
     </div>
-    <div class="form-row" style="margin-top:14px;align-items:center">
-      <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-soft);cursor:pointer">
-        <input type="checkbox" id="tsOn" checked onchange="onTsToggle()" style="width:16px;height:16px;accent-color:var(--jade)">
-        真太阳时校正（经度修正）
-      </label>
-      <div class="field" id="cityField">
-        <label>地点 / 经度</label>
-        <select id="city" onchange="onCity()">
-          <option value="116.41">北京 116.41°E</option>
-          <option value="121.47">上海 121.47°E</option>
-          <option value="113.26">广州 113.26°E</option>
-          <option value="114.06">深圳 114.06°E</option>
-          <option value="104.07">成都 104.07°E</option>
-          <option value="108.95">西安 108.95°E</option>
-          <option value="120.16">杭州 120.16°E</option>
-          <option value="114.30">武汉 114.30°E</option>
-          <option value="126.63">哈尔滨 126.63°E</option>
-          <option value="91.13">拉萨 91.13°E</option>
-          <option value="87.62">乌鲁木齐 87.62°E</option>
-          <option value="120.00">东八区中线 120°E（=北京时间）</option>
-          <option value="__custom">自定义经度…</option>
-        </select>
-      </div>
-      <div class="field num" id="lonField" style="display:none">
-        <label>东经 °</label><input id="lon" type="number" step="0.01" value="116.41">
-      </div>
-    </div>
   </div>
 
   <!-- 历史记录模块（标题可点击折叠） -->
@@ -303,9 +276,6 @@
       <div class="hist-empty" id="histEmpty">暂无记录，起局后会自动保存在本机浏览器中。</div>
     </div>
   </div>
-
-  <!-- 真太阳时提示 -->
-  <div id="tsBar" style="display:none;margin:-8px 0 18px;padding:9px 16px;background:#eef3f0;border:1px solid #cfe0d8;border-radius:10px;font-size:12.5px;color:var(--jade);letter-spacing:.5px"></div>
 
   <!-- 信息条 -->
   <div class="info-bar" id="infoBar" style="display:none">
@@ -358,10 +328,7 @@
     </aside>
   </div>
 
-  <footer>
-    莲花派时家转盘奇门 · 叶茂然/拆补/超神接气 三种定局 · 支持真太阳时（经度+均时差）校正<br>
-    <span class="disc">本工具仅供传统术数文化研究与学习，所排盘面不构成任何决策建议。</span>
-  </footer>
+  <footer>莲花奇门十二宫</footer>
 </div>
 
 <script src="qimen-core.js"></script>
@@ -391,29 +358,8 @@ function applyGenderUI(g){
 function setGender(g){ applyGenderUI(g); cast(); }
 function genderText(g){return g==='female'?'女测':'男测';}
 
-// 经度选择交互
-function onCity(){
-  const sel = document.getElementById('city');
-  const lonField = document.getElementById('lonField');
-  if(sel.value==='__custom'){
-    lonField.style.display='flex';
-  }else{
-    lonField.style.display='none';
-    document.getElementById('lon').value = sel.value;
-  }
-}
-function onTsToggle(){
-  const on = document.getElementById('tsOn').checked;
-  document.getElementById('cityField').style.opacity = on?'1':'.4';
-  document.getElementById('city').disabled = !on;
-  document.getElementById('lon').disabled = !on;
-}
-function getLongitude(){
-  if(!document.getElementById('tsOn').checked) return null;
-  const sel = document.getElementById('city');
-  if(sel.value==='__custom') return +document.getElementById('lon').value;
-  return +sel.value;
-}
+// 真太阳时已下线：起局一律按北京时间，不做经度校正
+function getLongitude(){ return null; }
 
 function useNow(){
   const d = new Date();
@@ -466,21 +412,6 @@ function cast(noSave){
       juName: r.ju.name,
       methodName: r.ju.methodName
     });
-  }
-
-  // 真太阳时提示条
-  const tsBar = document.getElementById('tsBar');
-  if(r.trueSolar){
-    const ts = r.trueSolar;
-    const sign = (v)=> (v>0?'+':'') + v;
-    tsBar.style.display='block';
-    tsBar.innerHTML =
-      `已按真太阳时起盘：北京时间 <b>${pad(inp.hour)}:${pad(inp.minute)}</b> → 真太阳时 <b>${ts.timeStr}</b>`
-      + `　（经度差 ${sign(ts.lonMin)} 分 · 均时差 ${sign(ts.eot)} 分 · 合计 <b>${sign(ts.totalMin)}</b> 分）`;
-  }else{
-    tsBar.style.display='block';
-    tsBar.style.background='#f3efe6';tsBar.style.borderColor='#e0d8c6';tsBar.style.color='var(--ink-soft)';
-    tsBar.textContent='未启用真太阳时校正，直接按北京时间（东八区 120°E）起盘。';
   }
 
   // 信息条
@@ -543,12 +474,7 @@ function cast(noSave){
 const HIST_KEY = 'qimen_history_v1';
 const HIST_MAX = 50;
 
-function locLabel(){
-  if(!document.getElementById('tsOn').checked) return '北京时间';
-  const sel = document.getElementById('city');
-  if(sel.value==='__custom') return '东经'+document.getElementById('lon').value+'°';
-  return sel.options[sel.selectedIndex].text.replace(/\s.*$/,''); // 取城市名
-}
+function locLabel(){ return '北京时间'; }
 function loadHist(){
   try{ return JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); }catch(e){ return []; }
 }
@@ -584,17 +510,6 @@ function replayHist(ts){
   document.getElementById('hh').value = i.hour;
   document.getElementById('mm').value = i.minute;
   applyGenderUI(rec.gender||'male'); // 仅还原性别状态与按钮，不触发 cast
-  // 还原经度设置
-  if(i.longitude===undefined){
-    document.getElementById('tsOn').checked = false;
-  }else{
-    document.getElementById('tsOn').checked = true;
-    const sel = document.getElementById('city');
-    let matched = false;
-    for(const opt of sel.options){ if(opt.value!=='__custom' && Math.abs(+opt.value - i.longitude)<0.001){ sel.value=opt.value; matched=true; break; } }
-    if(!matched){ sel.value='__custom'; document.getElementById('lon').value = i.longitude; }
-  }
-  onTsToggle(); onCity();
   cast(true); // 不再重复保存
   // 把这条提到最前
   const arr = loadHist(); const found = arr.find(x=>x.ts===ts);
