@@ -206,6 +206,7 @@
   .dx-row{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
   .dx-k{flex-shrink:0;font-size:12px;color:var(--ink-soft);letter-spacing:1px;width:34px}
   .dx-v{font-size:13.5px;color:var(--ink);line-height:1.5}
+  .dx-via{font-size:11px;color:var(--jade);background:#eef3f0;border:1px solid #cfe0d8;border-radius:5px;padding:1px 6px;margin-left:4px;white-space:nowrap}
   .dx-tip{margin-top:6px;font-size:11.5px;color:var(--ink-soft);line-height:1.6}
   /* 吉凶定性 */
   .score-box{text-align:center;margin-bottom:12px}
@@ -562,10 +563,21 @@ function findGanPalace(r, gan){
   }
   return null;
 }
-// 定位「人/事」宫：取四柱某柱的天干 → 天盘所在宫；若该干为甲，甲遁旬首仪，进值符宫
-function locatePalace(r, gan){
-  if(gan==='甲') return r.zhifu.palace; // 甲不现，进值符宫
-  return findGanPalace(r, gan);
+// 遁甲口诀：甲X日/时 → 所遁六仪
+const DUNJIA = {'子':'戊','戌':'己','申':'庚','午':'辛','辰':'壬','寅':'癸'};
+// 定位「人/事」宫：
+//   - 干非甲：直接找该天盘干所在宫
+//   - 日干为甲：进「值符宫」（日干甲特殊）
+//   - 月干/时干为甲：按该柱地支查遁甲口诀得六仪，找该仪所在宫
+// pillar: 该柱干支两字字符串（用于甲时取地支定六仪）；isDayGan: 是否日干
+function locatePalace(r, gan, pillar, isDayGan){
+  if(gan!=='甲') return { palace: findGanPalace(r, gan), via:'' };
+  if(isDayGan) return { palace: r.zhifu.palace, via:'甲日→值符宫' };
+  // 月干/时干甲：取该柱地支 → 六仪 → 仪宫
+  const zhi = pillar ? pillar[1] : '';
+  const yi = DUNJIA[zhi];
+  if(yi) return { palace: findGanPalace(r, yi), via:`甲${zhi}遁${yi}` };
+  return { palace: r.zhifu.palace, via:'甲→值符宫' };
 }
 // 五行相生：木生火 火生土 土生金 金生水 水生木
 const WX_SHENG = {'木':'火','火':'土','土':'金','金':'水','水':'木'};
@@ -579,16 +591,20 @@ function judgeScore(personWx, affairWx){
 }
 function updateDuanshi(r){
   const sz = r.sizhu;
-  // 人宫：面测看日干、遥测看月干
+  // 人宫：面测看日干（柱=日柱）、遥测看月干（柱=月柱）
   const personGan = (MODE==='yao') ? sz.month[0] : sz.day[0];
-  const affairGan = sz.hour[0]; // 事 = 时干
-  const pPal = locatePalace(r, personGan);
-  const aPal = locatePalace(r, affairGan);
+  const personPillar = (MODE==='yao') ? sz.month : sz.day;
+  const personIsDay = (MODE!=='yao'); // 面测=日干
+  const affairGan = sz.hour[0];        // 事 = 时干（柱=时柱，时干甲找六仪）
+  const pRes = locatePalace(r, personGan, personPillar, personIsDay);
+  const aRes = locatePalace(r, affairGan, sz.hour, false);
+  const pPal = pRes.palace, aPal = aRes.palace;
   const palName = p => p ? (p+'·'+r.grid[p].name+'宫') : '—';
-  const personLabel = (MODE==='yao'?'月干':'日干') + ' ' + personGan + (personGan==='甲'?'（甲进值符宫）':'');
-  document.getElementById('dxPerson').innerHTML = `${personLabel} → <b>${palName(pPal)}</b>`;
-  document.getElementById('dxAffair').innerHTML = `时干 ${affairGan}${affairGan==='甲'?'（甲进值符宫）':''} → <b>${palName(aPal)}</b>`;
-  document.getElementById('dxTip').textContent = `${modeText(MODE)}：人宫取${MODE==='yao'?'月':'日'}干、事宫取时干（按天盘干定位）`;
+  const pVia = pRes.via ? `<span class="dx-via">${pRes.via}</span>` : '';
+  const aVia = aRes.via ? `<span class="dx-via">${aRes.via}</span>` : '';
+  document.getElementById('dxPerson').innerHTML = `${MODE==='yao'?'月干':'日干'} ${personGan} → <b>${palName(pPal)}</b> ${pVia}`;
+  document.getElementById('dxAffair').innerHTML = `时干 ${affairGan} → <b>${palName(aPal)}</b> ${aVia}`;
+  document.getElementById('dxTip').textContent = `${modeText(MODE)}：人宫取${MODE==='yao'?'月':'日'}干、事宫取时干（天盘干定位；甲日进值符，月/时干甲遁六仪）`;
 
   // 吉凶定性
   const box = document.getElementById('scoreBox');
