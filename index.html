@@ -199,14 +199,31 @@
   .mark.pomu{background:var(--cinnabar);color:#fff}
   .mark.pomen{background:#efe3d6;color:#9a6a2f;border:1px solid #d9c19e}
 
-  /* 右侧图例/说明 */
-  .side{flex:1 1 240px;min-width:220px}
-  .side h3{font-size:14px;letter-spacing:2px;color:var(--jade);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
-  .legend{display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:var(--ink-soft)}
-  .legend .li{display:flex;gap:8px;align-items:flex-start}
-  .legend .tag{flex-shrink:0}
-  .legend .desc{line-height:1.5}
-  .note{margin-top:18px;font-size:11.5px;color:var(--ink-soft);line-height:1.7;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  /* 右侧断事栏 */
+  .side{flex:1 1 240px;min-width:220px;display:flex;flex-direction:column;gap:14px}
+  .dx-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+  .dx-card h3{font-size:14px;letter-spacing:2px;color:var(--jade);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .dx-row{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+  .dx-k{flex-shrink:0;font-size:12px;color:var(--ink-soft);letter-spacing:1px;width:34px}
+  .dx-v{font-size:13.5px;color:var(--ink);line-height:1.5}
+  .dx-tip{margin-top:6px;font-size:11.5px;color:var(--ink-soft);line-height:1.6}
+  /* 吉凶定性 */
+  .score-box{text-align:center;margin-bottom:12px}
+  .score-num{font-size:34px;font-weight:700;line-height:1.1;font-family:"KaiTi","STKaiti",serif}
+  .score-rel{font-size:12.5px;color:var(--ink-soft);letter-spacing:1px;margin-top:3px}
+  .score-pass .score-num{color:#c0392b}
+  .score-fail .score-num{color:#2f7a44}
+  .score-scale{margin-bottom:12px}
+  .ss-bar{position:relative;height:8px;border-radius:4px;background:#e7e1d4;overflow:hidden}
+  .ss-fill{position:absolute;left:0;top:0;height:100%;border-radius:4px;transition:width .3s,background .3s}
+  .ss-pass{position:absolute;top:-2px;bottom:-2px;left:50%;width:1px;background:var(--ink-soft);opacity:.5}
+  .ss-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--ink-soft);margin-top:4px}
+  .ss-passlab{color:var(--cinnabar)}
+  .score-legend{font-size:11.5px;color:var(--ink-soft);line-height:1.9;border-top:1px solid var(--line);padding-top:8px}
+  .score-legend .ss-passline{color:var(--cinnabar);text-align:center;letter-spacing:2px;margin:2px 0}
+  /* 遁甲口诀 */
+  .dunjia{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .dunjia span{text-align:center;font-size:13px;color:var(--ink);background:#f3efe6;border:1px solid var(--line);border-radius:7px;padding:6px 0;letter-spacing:1px;font-family:"KaiTi","STKaiti",serif}
 
   footer{margin-top:40px;text-align:center;font-size:11.5px;color:var(--ink-soft);letter-spacing:1px;line-height:1.8}
   footer .disc{color:#a89f8f;margin-top:6px}
@@ -269,7 +286,14 @@
           <button type="button" class="seg-btn" data-g="female" onclick="setGender('female')">女测</button>
         </div>
       </div>
-      <span style="font-size:11.5px;color:var(--ink-soft);padding-bottom:10px;line-height:1.5">莲花派定局 · 四柱天干定局</span>
+      <div class="field">
+        <label>测法</label>
+        <div class="seg" id="modeSeg">
+          <button type="button" class="seg-btn on" data-m="mian" onclick="setMode('mian')">面测</button>
+          <button type="button" class="seg-btn" data-m="yao" onclick="setMode('yao')">遥测</button>
+        </div>
+      </div>
+      <span style="font-size:11.5px;color:var(--ink-soft);padding-bottom:10px;line-height:1.5">面测看日干 · 遥测看月干</span>
     </div>
   </div>
 
@@ -322,19 +346,40 @@
       <div class="empty-hint" style="grid-column:1/4">输入公历时间，点击「起局」开始排盘</div>
     </div>
     <aside class="side" id="side" style="display:none">
-      <h3>标 注 图 例</h3>
-      <div class="legend">
-        <div class="li"><span class="tag mark kong">空亡</span><span class="desc">宫中地支落旬空，事多虚耗、难成</span></div>
-        <div class="li"><span class="tag mark ma">马星</span><span class="desc">驿马所在，主动象、出行、变迁</span></div>
-        <div class="li"><span class="tag mark mu">入墓</span><span class="desc">天盘干入墓库宫，象昏暗、受困</span></div>
-        <div class="li"><span class="tag mark xing">击刑</span><span class="desc">六仪击刑，宫地支相刑，主刑伤阻滞</span></div>
-        <div class="li"><span class="tag mark pomu">刑+墓</span><span class="desc">既刑且墓，凶象加重</span></div>
-        <div class="li"><span class="tag door-po-tag">门迫</span><span class="desc">门五行克宫，门名加框并标「门迫」；吉门减力、凶门增凶</span></div>
+      <!-- 入宫断事 -->
+      <div class="dx-card">
+        <h3>入 宫 断 事</h3>
+        <div class="dx-row"><span class="dx-k">人宫</span><span class="dx-v" id="dxPerson">—</span></div>
+        <div class="dx-row"><span class="dx-k">事宫</span><span class="dx-v" id="dxAffair">—</span></div>
+        <div class="dx-tip" id="dxTip"></div>
       </div>
-      <div class="note">
-        <b style="color:var(--jade)">读盘次第</b><br>
-        每宫左侧自上而下：<b>神盘</b>（八神）→ <b>天盘九星</b> → <b>人盘八门</b>；右下角竖排干字，上为<b style="color:var(--cinnabar)">天盘干</b>、下为<b>地盘干</b>。<br>
-        <b style="color:var(--jade)">三色吉凶</b>（神/星/门通用）：<span class="lucky-ji">红＝吉</span> · <span class="lucky-xiong">绿＝凶</span> · <span class="lucky-ping">蓝＝中平</span>。
+      <!-- 吉凶定性 -->
+      <div class="dx-card">
+        <h3>吉 凶 定 性</h3>
+        <div class="score-box" id="scoreBox">
+          <div class="score-num" id="scoreNum">—</div>
+          <div class="score-rel" id="scoreRel">起局后显示</div>
+        </div>
+        <div class="score-scale">
+          <div class="ss-bar"><div class="ss-fill" id="ssFill"></div><div class="ss-pass"></div></div>
+          <div class="ss-labels"><span>40</span><span>50</span><span class="ss-passlab">及格60</span><span>70</span><span>80</span></div>
+        </div>
+        <div class="score-legend">
+          <div>人宫比和事宫 = 80</div>
+          <div>事宫生人宫 = 70</div>
+          <div>人宫克事宫 = 60</div>
+          <div class="ss-passline">— 及格线 —</div>
+          <div>人宫生事宫 = 50</div>
+          <div>人宫被事宫克 = 40</div>
+        </div>
+      </div>
+      <!-- 遁甲口诀 -->
+      <div class="dx-card">
+        <h3>遁 甲 口 诀</h3>
+        <div class="dunjia">
+          <span>甲子戊</span><span>甲戌己</span><span>甲申庚</span>
+          <span>甲午辛</span><span>甲辰壬</span><span>甲寅癸</span>
+        </div>
       </div>
     </aside>
   </div>
@@ -368,6 +413,15 @@ function applyGenderUI(g){
 }
 function setGender(g){ applyGenderUI(g); cast(); }
 function genderText(g){return g==='female'?'女测':'男测';}
+
+// 测法：面测看日干 / 遥测看月干
+let MODE = 'mian';
+function applyModeUI(m){
+  MODE = m;
+  document.querySelectorAll('#modeSeg .seg-btn').forEach(b=>b.classList.toggle('on', b.dataset.m===m));
+}
+function setMode(m){ applyModeUI(m); cast(); }
+function modeText(m){return m==='yao'?'遥测':'面测';}
 
 // 真太阳时已下线：起局一律按北京时间，不做经度校正
 function getLongitude(){ return null; }
@@ -418,6 +472,7 @@ function cast(noSave){
       ts: Date.now(),
       inp: inp,
       gender: GENDER,
+      mode: MODE,
       locLabel: locLabel(),
       sz: r.sizhu,
       juName: r.ju.name,
@@ -454,7 +509,7 @@ function cast(noSave){
         <div class="ci-row"><span class="ci-k">小值符</span><span class="ci-v">${r.zhifu.star}</span></div>
         <div class="ci-row"><span class="ci-k">值使门</span><span class="ci-v">${r.zhishi.door}</span></div>
         <div class="ci-ju">${r.ju.name}</div>
-        <div class="ci-sub">叶盘 · ${genderText(GENDER)}</div>`;
+        <div class="ci-sub">叶盘 · ${genderText(GENDER)} · ${modeText(MODE)}</div>`;
       plate.appendChild(cell);
       return;
     }
@@ -489,6 +544,71 @@ function cast(noSave){
       <div class="marks">${marksHtml}</div>`;
     plate.appendChild(cell);
   });
+
+  // 入宫断事 + 吉凶定性
+  updateDuanshi(r);
+}
+
+// ========== 入宫断事 / 吉凶定性 ==========
+// 宫位五行（用于生克）
+const PALACE_WX = {1:'水',2:'土',3:'木',4:'木',5:'土',6:'金',7:'金',8:'土',9:'火'};
+const WX_KE = {'木':'土','土':'水','水':'火','火':'金','金':'木'}; // 我克
+// 找天干在天盘所在的宫（含天禽寄宫：天盘干在天芮所在宫亦计）
+function findGanPalace(r, gan){
+  for(let p=1;p<=9;p++){
+    const g=r.grid[p];
+    if(g.skyGan===gan) return p;
+    if(g.jiSky===gan) return p; // 天禽寄入的天盘干
+  }
+  return null;
+}
+// 定位「人/事」宫：取四柱某柱的天干 → 天盘所在宫；若该干为甲，甲遁旬首仪，进值符宫
+function locatePalace(r, gan){
+  if(gan==='甲') return r.zhifu.palace; // 甲不现，进值符宫
+  return findGanPalace(r, gan);
+}
+// 五行相生：木生火 火生土 土生金 金生水 水生木
+const WX_SHENG = {'木':'火','火':'土','土':'金','金':'水','水':'木'};
+function judgeScore(personWx, affairWx){
+  if(personWx===affairWx) return {score:80, rel:'人宫比和事宫', pass:true};
+  if(WX_SHENG[affairWx]===personWx) return {score:70, rel:'事宫生人宫', pass:true};
+  if(WX_KE[personWx]===affairWx) return {score:60, rel:'人宫克事宫', pass:true};
+  if(WX_SHENG[personWx]===affairWx) return {score:50, rel:'人宫生事宫', pass:false};
+  if(WX_KE[affairWx]===personWx) return {score:40, rel:'人宫被事宫克', pass:false};
+  return {score:null, rel:'—', pass:null};
+}
+function updateDuanshi(r){
+  const sz = r.sizhu;
+  // 人宫：面测看日干、遥测看月干
+  const personGan = (MODE==='yao') ? sz.month[0] : sz.day[0];
+  const affairGan = sz.hour[0]; // 事 = 时干
+  const pPal = locatePalace(r, personGan);
+  const aPal = locatePalace(r, affairGan);
+  const palName = p => p ? (p+'·'+r.grid[p].name+'宫') : '—';
+  const personLabel = (MODE==='yao'?'月干':'日干') + ' ' + personGan + (personGan==='甲'?'（甲进值符宫）':'');
+  document.getElementById('dxPerson').innerHTML = `${personLabel} → <b>${palName(pPal)}</b>`;
+  document.getElementById('dxAffair').innerHTML = `时干 ${affairGan}${affairGan==='甲'?'（甲进值符宫）':''} → <b>${palName(aPal)}</b>`;
+  document.getElementById('dxTip').textContent = `${modeText(MODE)}：人宫取${MODE==='yao'?'月':'日'}干、事宫取时干（按天盘干定位）`;
+
+  // 吉凶定性
+  const box = document.getElementById('scoreBox');
+  const numEl = document.getElementById('scoreNum');
+  const relEl = document.getElementById('scoreRel');
+  const fill = document.getElementById('ssFill');
+  if(!pPal || !aPal){
+    numEl.textContent='—'; relEl.textContent='宫位无法定位';
+    box.className='score-box'; fill.style.width='0';
+    return;
+  }
+  const pWx = PALACE_WX[pPal], aWx = PALACE_WX[aPal];
+  const res = judgeScore(pWx, aWx);
+  numEl.textContent = res.score!==null ? res.score : '—';
+  relEl.textContent = `${res.rel}（人宫${pWx} · 事宫${aWx}）`;
+  box.className = 'score-box ' + (res.pass===true?'score-pass':(res.pass===false?'score-fail':''));
+  // 进度条：40~80 映射到 0~100%
+  const pct = res.score!==null ? ((res.score-40)/40*100) : 0;
+  fill.style.width = pct+'%';
+  fill.style.background = res.pass ? '#c0392b' : '#2f7a44';
 }
 
 // ========== 历史记录 ==========
@@ -531,6 +651,7 @@ function replayHist(ts){
   document.getElementById('hh').value = i.hour;
   document.getElementById('mm').value = i.minute;
   applyGenderUI(rec.gender||'male'); // 仅还原性别状态与按钮，不触发 cast
+  applyModeUI(rec.mode||'mian');
   cast(true); // 不再重复保存
   // 把这条提到最前
   const arr = loadHist(); const found = arr.find(x=>x.ts===ts);
