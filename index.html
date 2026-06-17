@@ -152,10 +152,6 @@
   .cell.center-info .ci-v{color:var(--ink);font-weight:600}
   .cell.center-info .ci-ju{margin-top:5px;font-size:15px;font-weight:600;color:var(--cinnabar);letter-spacing:1px}
   .cell.center-info .ci-sub{font-size:11px;color:var(--ink-soft);letter-spacing:1px;margin-top:1px}
-  /* 坤2宫寄写中5宫干：第二列天地盘干，紧贴坤2本身干列左侧 */
-  .cell.cell-kun2{padding-right:78px}
-  .gan-zone.gan-ji{right:42px;opacity:.95}
-  .gan-zone.gan-ji::after{content:'';position:absolute;right:-7px;top:12%;height:76%;border-right:1px dashed var(--line)}
   .cell-top{display:flex;justify-content:space-between;align-items:flex-start;font-size:11px;color:var(--ink-soft)}
   .cell-pal{font-weight:600;color:var(--jade);letter-spacing:1px}
   .cell-dir{font-size:10px}
@@ -187,8 +183,10 @@
     position:absolute;right:9px;bottom:6px;
     display:flex;flex-direction:column;align-items:center;gap:1px;
   }
-  .gan-sky{font-size:20px;font-weight:700;color:var(--cinnabar);font-family:"KaiTi","STKaiti",serif;line-height:1.05}
-  .gan-earth{font-size:20px;font-weight:700;color:var(--ink);font-family:"KaiTi","STKaiti",serif;line-height:1.05}
+  .gan-sky{font-size:20px;font-weight:700;color:var(--cinnabar);font-family:"KaiTi","STKaiti",serif;line-height:1.05;white-space:nowrap}
+  .gan-earth{font-size:20px;font-weight:700;color:var(--ink);font-family:"KaiTi","STKaiti",serif;line-height:1.05;white-space:nowrap}
+  /* 寄宫并列两字时缩窄，避免溢出 */
+  .gan-sky.two,.gan-earth.two{font-size:15px;letter-spacing:0}
   /* 标注：左下角，右侧留出天地盘干列（44px），可换行不覆盖干/星/门 */
   .marks{position:absolute;left:8px;right:44px;bottom:6px;display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-start;align-items:flex-end}
   .mark{font-size:9px;padding:1px 5px;border-radius:5px;letter-spacing:.5px;line-height:1.5;white-space:nowrap;flex-shrink:0}
@@ -439,12 +437,9 @@ function cast(noSave){
     `${r.xunshou} · 空<b style="color:var(--cinnabar)">${r.kongwang.join('')}</b> · 马<b>${r.maxing}</b>`;
 
   // 九宫盘（叶盘布局）：
-  //   - 正中央格 = 信息区：小值符(值符星)/值使门/局数/叶盘/性别/中宫地盘干
-  //   - 中5宫无独立宫格，其地盘干寄写到坤2宫（与坤2自身天地盘干并列）
+  //   - 正中央格 = 信息区：小值符(值符星)/值使门/局数/叶盘/性别
+  //   - 中5宫天禽随天芮：天禽天盘干寄天芮所在宫(天盘并列)，地盘干寄坤2(地盘并列)
   const PLATE_LAYOUT = [4,9,2, 3,5,7, 8,1,6];
-  const center5 = r.grid[5];                 // 中5宫
-  const jiSky = center5.skyGan || '';        // 中宫天盘干，寄入坤2
-  const jiEarth = center5.earthGan || '';    // 中宫地盘干，寄入坤2
   const plate = document.getElementById('plate');
   plate.innerHTML='';
   PLATE_LAYOUT.forEach(p=>{
@@ -463,7 +458,7 @@ function cast(noSave){
     }
 
     const g = r.grid[p];
-    cell.className = 'cell' + (p===2 && (jiSky||jiEarth) ? ' cell-kun2' : '');
+    cell.className = 'cell';
     const doorCls = luckCls(DOOR_LUCK, g.door);
     const isPo = g.marks.includes('门迫');
     const otherMarks = g.marks.filter(m=>m!=='门迫');
@@ -471,13 +466,10 @@ function cast(noSave){
     const doorInner = g.door
       ? `<span class="door-name ${doorCls} ${isPo?'is-po':''}">${g.door}门</span>${isPo?'<span class="door-po-tag">门迫</span>':''}`
       : '';
-    // 坤2宫：中5宫天盘干/地盘干寄此，与坤2本身的干并列（写法相同，无"寄"标签）
-    const jiZone = (p===2 && (jiSky || jiEarth))
-      ? `<div class="gan-zone gan-ji" title="中五宫寄于坤二宫">
-           <span class="gan-sky">${jiSky||'·'}</span>
-           <span class="gan-earth">${jiEarth||'·'}</span>
-         </div>`
-      : '';
+    // 天禽寄宫：天盘干寄天芮所在宫、地盘干寄坤2，与该宫本身干并列（两字写法相同，无"寄"标签）
+    // 叶盘并列顺序：寄入的天禽干在前，本宫干在后（如 丙壬）
+    const skyText  = (g.jiSky   || '') + (g.skyGan||'·');
+    const earthText= (g.jiEarth || '') + (g.earthGan||'·');
     cell.innerHTML = `
       <div class="cell-top">
         <span class="cell-pal">${p}·${g.name}</span>
@@ -487,10 +479,9 @@ function cast(noSave){
       <div class="row-star ${luckCls(STAR_LUCK,g.star)}">${g.star||''}</div>
       <div class="row-door">${doorInner}</div>
       <div class="gan-zone" title="上为天盘干，下为地盘干">
-        <span class="gan-sky">${g.skyGan||'·'}</span>
-        <span class="gan-earth">${g.earthGan||'·'}</span>
+        <span class="gan-sky ${skyText.length>1?'two':''}">${skyText}</span>
+        <span class="gan-earth ${earthText.length>1?'two':''}">${earthText}</span>
       </div>
-      ${jiZone}
       <div class="marks">${marksHtml}</div>`;
     plate.appendChild(cell);
   });

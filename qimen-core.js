@@ -380,7 +380,10 @@
     // 10. 组装九宫格 + 标注
     const grid = assembleGrid({
       earthPlate, skyPlate: skyPlate.stars, skyGan: skyPlate.gan,
-      doorPlate, shenPlate, ju, kongwang, maxing, hourGanIdx
+      doorPlate, shenPlate, ju, kongwang, maxing, hourGanIdx,
+      qinRuiPalace: skyPlate.ruiPalace,   // 天禽随天芮所在宫
+      qinSkyGan: skyPlate.qinGan,         // 天禽天盘干（=中5地盘干），寄天芮宫天盘
+      qinEarthGan: skyPlate.qinEarthGan   // 天禽地盘干（=中5地盘干），寄坤2地盘
     });
 
     return {
@@ -596,11 +599,15 @@
     }
     // 天盘值符星最终落宫
     const zhifuPalace = hourGanPalace;
-    // 中5天禽：天盘干 = 天禽地盘本位宫(中5)的地盘干（与八宫同一规律：
-    //   天盘干 = 该宫天盘星在地盘本位宫的地盘干）。中5天盘干、地盘干均寄坤2显示。
-    gan[5] = earthPlate[5] || '';
-    stars[5] = STAR_HOME[5]; // 天禽留标记
-    return { stars, gan, zhifuPalace };
+    // 中5天禽：跟随天芮。天芮落在哪一宫，天禽也落在哪一宫。
+    //   - 天禽天盘干 = 天禽地盘本位(中5)的地盘干，寄到「天芮所在宫」的天盘（并列叠加）
+    //   - 天禽地盘干 = 中5地盘干，固定寄到坤2宫的地盘（并列叠加）
+    // 找天芮当前落宫
+    let ruiPalace = null;
+    for (const p in stars) { if (stars[p] === '天芮') { ruiPalace = parseInt(p); break; } }
+    const qinGan = earthPlate[5] || ''; // 天禽天盘干 = 中5地盘干
+    stars[5] = STAR_HOME[5];
+    return { stars, gan, zhifuPalace, ruiPalace, qinGan, qinEarthGan: earthPlate[5] || '' };
   }
 
   // 转人盘八门
@@ -665,9 +672,16 @@
         star: d.skyPlate[p] || (p === 5 ? '天禽' : ''),
         door: d.doorPlate.doors[p] || '',
         shen: d.shenPlate[p] || '',
-        marks: []
+        marks: [],
+        // 天禽寄宫附加干（叶盘并列显示用）：
+        //   jiSky：天禽天盘干，寄于天芮所在宫；jiEarth：天禽地盘干，寄于坤2
+        jiSky: '',
+        jiEarth: ''
       };
     }
+    // 天禽随天芮：天盘干寄天芮宫、地盘干寄坤2宫（与该宫本身干并列）
+    if (d.qinRuiPalace && grid[d.qinRuiPalace]) grid[d.qinRuiPalace].jiSky = d.qinSkyGan || '';
+    if (grid[2]) grid[2].jiEarth = d.qinEarthGan || '';
 
     // 空亡标注
     const kongZhi = d.kongwang.map(z => z); // 已是地支索引数组
