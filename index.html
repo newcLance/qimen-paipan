@@ -252,21 +252,13 @@
     </div>
     <div class="form-row" style="margin-top:14px;align-items:flex-end">
       <div class="field">
-        <label>定局法</label>
-        <select id="dingju" onchange="cast()">
-          <option value="ye">叶茂然莲花</option>
-          <option value="chaibu">拆补法</option>
-          <option value="chaobu">超神接气</option>
-        </select>
-      </div>
-      <div class="field">
         <label>求测人</label>
         <div class="seg" id="genderSeg">
           <button type="button" class="seg-btn on" data-g="male" onclick="setGender('male')">男测</button>
           <button type="button" class="seg-btn" data-g="female" onclick="setGender('female')">女测</button>
         </div>
       </div>
-      <span style="font-size:11.5px;color:var(--ink-soft);padding-bottom:10px;line-height:1.5" id="dingjuHint">叶茂然莲花派口径</span>
+      <span style="font-size:11.5px;color:var(--ink-soft);padding-bottom:10px;line-height:1.5">莲花派定局 · 四柱天干定局</span>
     </div>
     <div class="form-row" style="margin-top:14px;align-items:center">
       <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-soft);cursor:pointer">
@@ -443,22 +435,15 @@ function markClass(m){
   return '';
 }
 
-const DINGJU_HINT = {
-  ye:'叶茂然莲花派口径，每日换局',
-  chaibu:'拆补法：一节气内只用本气三元，不超神接气',
-  chaobu:'超神接气：符头领节气，超神/接气定局'
-};
 function cast(noSave){
   const lon = getLongitude();
-  const dj = document.getElementById('dingju').value;
-  document.getElementById('dingjuHint').textContent = DINGJU_HINT[dj]||'';
   const inp = {
     year:+document.getElementById('y').value,
     month:+document.getElementById('mo').value,
     day:+document.getElementById('da').value,
     hour:+document.getElementById('hh').value,
     minute:+document.getElementById('mm').value,
-    dingjuMethod: dj
+    dingjuMethod: 'ye'
   };
   if(lon!==null) inp.longitude = lon;
   if(!inp.year||!inp.month||!inp.day){alert('请输入完整的公历日期');return;}
@@ -505,7 +490,7 @@ function cast(noSave){
   document.getElementById('sizhu').innerHTML =
     [['年',sz.year],['月',sz.month],['日',sz.day],['时',sz.hour]]
       .map(([k,v])=>`<div class="z"><span style="font-size:17px">${v}</span><small>${k}柱</small></div>`).join('');
-  document.getElementById('juName').innerHTML = r.ju.name + `<span style="font-size:11px;color:var(--ink-soft);font-weight:400;margin-left:6px">${r.ju.methodName||''}</span>`;
+  document.getElementById('juName').textContent = r.ju.name;
   document.getElementById('jieqi').textContent = r.ju.jieqi+' · '+r.ju.yuanName;
   document.getElementById('fushi').textContent = r.zhifu.star+' / '+r.zhishi.door+'门';
   document.getElementById('extra').innerHTML =
@@ -598,7 +583,6 @@ function replayHist(ts){
   document.getElementById('da').value = i.day;
   document.getElementById('hh').value = i.hour;
   document.getElementById('mm').value = i.minute;
-  if(i.dingjuMethod) document.getElementById('dingju').value = i.dingjuMethod;
   applyGenderUI(rec.gender||'male'); // 仅还原性别状态与按钮，不触发 cast
   // 还原经度设置
   if(i.longitude===undefined){
