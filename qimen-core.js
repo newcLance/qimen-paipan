@@ -594,14 +594,11 @@
       // 天盘干 = 该星原宫(地盘)上的天干，随星移动
       gan[toP] = earthPlate[fromP];
     }
-    // 中宫天禽：寄随值符。中5本位星天禽，地盘中5的干随值符星走
     // 天盘值符星最终落宫
     const zhifuPalace = hourGanPalace;
-    // 天禽寄宫处理：天禽星随天芮同宫（传统天禽寄二宫/随值符）。这里将中5地盘干并入值符宫
-    if (earthPlate[5]) {
-      // 天禽寄于值符宫(与天芮同行)，将其干附加
-      gan[zhifuPalace] = (gan[zhifuPalace] || '') ;
-    }
+    // 中5天禽：天盘干 = 天禽地盘本位宫(中5)的地盘干（与八宫同一规律：
+    //   天盘干 = 该宫天盘星在地盘本位宫的地盘干）。中5天盘干、地盘干均寄坤2显示。
+    gan[5] = earthPlate[5] || '';
     stars[5] = STAR_HOME[5]; // 天禽留标记
     return { stars, gan, zhifuPalace };
   }

@@ -152,9 +152,10 @@
   .cell.center-info .ci-v{color:var(--ink);font-weight:600}
   .cell.center-info .ci-ju{margin-top:5px;font-size:15px;font-weight:600;color:var(--cinnabar);letter-spacing:1px}
   .cell.center-info .ci-sub{font-size:11px;color:var(--ink-soft);letter-spacing:1px;margin-top:1px}
-  .cell.center-info .ci-gan{margin-top:5px;font-size:18px;font-weight:700;color:var(--ink);font-family:"KaiTi","STKaiti",serif}
-  /* 坤2宫寄写的中宫地盘干小标 */
-  .ji-gan{font-size:11px;color:#9a6a2f;background:rgba(199,154,85,.12);border:1px solid #d9c19e;border-radius:4px;padding:0 4px;margin-left:3px;font-family:inherit;vertical-align:middle}
+  /* 坤2宫寄写中5宫干：第二列天地盘干，紧贴坤2本身干列左侧 */
+  .cell.cell-kun2{padding-right:78px}
+  .gan-zone.gan-ji{right:42px;opacity:.95}
+  .gan-zone.gan-ji::after{content:'';position:absolute;right:-7px;top:12%;height:76%;border-right:1px dashed var(--line)}
   .cell-top{display:flex;justify-content:space-between;align-items:flex-start;font-size:11px;color:var(--ink-soft)}
   .cell-pal{font-weight:600;color:var(--jade);letter-spacing:1px}
   .cell-dir{font-size:10px}
@@ -441,8 +442,9 @@ function cast(noSave){
   //   - 正中央格 = 信息区：小值符(值符星)/值使门/局数/叶盘/性别/中宫地盘干
   //   - 中5宫无独立宫格，其地盘干寄写到坤2宫（与坤2自身天地盘干并列）
   const PLATE_LAYOUT = [4,9,2, 3,5,7, 8,1,6];
-  const center5 = r.grid[5];           // 中5宫（含地盘干，如"乙"）
-  const jiGan = center5.earthGan || ''; // 中宫地盘干，寄入坤2
+  const center5 = r.grid[5];                 // 中5宫
+  const jiSky = center5.skyGan || '';        // 中宫天盘干，寄入坤2
+  const jiEarth = center5.earthGan || '';    // 中宫地盘干，寄入坤2
   const plate = document.getElementById('plate');
   plate.innerHTML='';
   PLATE_LAYOUT.forEach(p=>{
@@ -455,14 +457,13 @@ function cast(noSave){
         <div class="ci-row"><span class="ci-k">小值符</span><span class="ci-v">${r.zhifu.star}</span></div>
         <div class="ci-row"><span class="ci-k">值使门</span><span class="ci-v">${r.zhishi.door}</span></div>
         <div class="ci-ju">${r.ju.name}</div>
-        <div class="ci-sub">叶盘 · ${genderText(GENDER)}</div>
-        <div class="ci-gan" title="中宫地盘干">${jiGan}</div>`;
+        <div class="ci-sub">叶盘 · ${genderText(GENDER)}</div>`;
       plate.appendChild(cell);
       return;
     }
 
     const g = r.grid[p];
-    cell.className = 'cell';
+    cell.className = 'cell' + (p===2 && (jiSky||jiEarth) ? ' cell-kun2' : '');
     const doorCls = luckCls(DOOR_LUCK, g.door);
     const isPo = g.marks.includes('门迫');
     const otherMarks = g.marks.filter(m=>m!=='门迫');
@@ -470,9 +471,12 @@ function cast(noSave){
     const doorInner = g.door
       ? `<span class="door-name ${doorCls} ${isPo?'is-po':''}">${g.door}门</span>${isPo?'<span class="door-po-tag">门迫</span>':''}`
       : '';
-    // 坤2宫：寄写中宫地盘干（小字）
-    const jiHtml = (p===2 && jiGan)
-      ? `<span class="ji-gan" title="中五宫地盘干寄于坤二宫">寄${jiGan}</span>`
+    // 坤2宫：中5宫天盘干/地盘干寄此，与坤2本身的干并列（写法相同，无"寄"标签）
+    const jiZone = (p===2 && (jiSky || jiEarth))
+      ? `<div class="gan-zone gan-ji" title="中五宫寄于坤二宫">
+           <span class="gan-sky">${jiSky||'·'}</span>
+           <span class="gan-earth">${jiEarth||'·'}</span>
+         </div>`
       : '';
     cell.innerHTML = `
       <div class="cell-top">
@@ -484,8 +488,9 @@ function cast(noSave){
       <div class="row-door">${doorInner}</div>
       <div class="gan-zone" title="上为天盘干，下为地盘干">
         <span class="gan-sky">${g.skyGan||'·'}</span>
-        <span class="gan-earth">${g.earthGan||'·'}${jiHtml}</span>
+        <span class="gan-earth">${g.earthGan||'·'}</span>
       </div>
+      ${jiZone}
       <div class="marks">${marksHtml}</div>`;
     plate.appendChild(cell);
   });
