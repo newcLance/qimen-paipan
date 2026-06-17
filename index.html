@@ -145,6 +145,16 @@
   }
   .cell:hover{border-color:var(--jade-soft);box-shadow:0 0 0 2px rgba(90,132,117,.12)}
   .cell.center{background:var(--cell-center);align-items:center;justify-content:center;text-align:center}
+  /* 正中央信息区（叶盘：小值符/值使门/局数/叶盘性别/中宫干） */
+  .cell.center-info{background:var(--cell-center);align-items:center;justify-content:center;text-align:center;padding:8px 6px;gap:2px}
+  .cell.center-info .ci-row{display:flex;align-items:center;gap:5px;font-size:12px;line-height:1.5}
+  .cell.center-info .ci-k{color:var(--ink-soft);letter-spacing:1px}
+  .cell.center-info .ci-v{color:var(--ink);font-weight:600}
+  .cell.center-info .ci-ju{margin-top:5px;font-size:15px;font-weight:600;color:var(--cinnabar);letter-spacing:1px}
+  .cell.center-info .ci-sub{font-size:11px;color:var(--ink-soft);letter-spacing:1px;margin-top:1px}
+  .cell.center-info .ci-gan{margin-top:5px;font-size:18px;font-weight:700;color:var(--ink);font-family:"KaiTi","STKaiti",serif}
+  /* 坤2宫寄写的中宫地盘干小标 */
+  .ji-gan{font-size:11px;color:#9a6a2f;background:rgba(199,154,85,.12);border:1px solid #d9c19e;border-radius:4px;padding:0 4px;margin-left:3px;font-family:inherit;vertical-align:middle}
   .cell-top{display:flex;justify-content:space-between;align-items:flex-start;font-size:11px;color:var(--ink-soft)}
   .cell-pal{font-weight:600;color:var(--jade);letter-spacing:1px}
   .cell-dir{font-size:10px}
@@ -427,31 +437,42 @@ function cast(noSave){
   document.getElementById('extra').innerHTML =
     `${r.xunshou} · 空<b style="color:var(--cinnabar)">${r.kongwang.join('')}</b> · 马<b>${r.maxing}</b>`;
 
-  // 九宫
+  // 九宫盘（叶盘布局）：
+  //   - 正中央格 = 信息区：小值符(值符星)/值使门/局数/叶盘/性别/中宫地盘干
+  //   - 中5宫无独立宫格，其地盘干寄写到坤2宫（与坤2自身天地盘干并列）
+  const PLATE_LAYOUT = [4,9,2, 3,5,7, 8,1,6];
+  const center5 = r.grid[5];           // 中5宫（含地盘干，如"乙"）
+  const jiGan = center5.earthGan || ''; // 中宫地盘干，寄入坤2
   const plate = document.getElementById('plate');
   plate.innerHTML='';
-  GRID_LAYOUT.forEach(p=>{
-    const g = r.grid[p];
+  PLATE_LAYOUT.forEach(p=>{
     const cell = document.createElement('div');
-    cell.className = 'cell'+(p===5?' center':'');
+
+    // 正中央：信息区
     if(p===5){
+      cell.className = 'cell center-info';
       cell.innerHTML = `
-        <div class="cell-pal" style="font-size:13px">中 五 宫</div>
-        <div class="row-star ${luckCls(STAR_LUCK,g.star)}" style="margin-top:6px;font-size:14px">${g.star}</div>
-        <div class="gan-zone" style="position:static;margin-top:8px" title="上为天盘干，下为地盘干（寄宫）">
-          ${g.skyGan?`<span class="gan-sky">${g.skyGan}</span>`:''}
-          ${g.earthGan?`<span class="gan-earth">${g.earthGan}</span>`:''}
-        </div>`;
+        <div class="ci-row"><span class="ci-k">小值符</span><span class="ci-v">${r.zhifu.star}</span></div>
+        <div class="ci-row"><span class="ci-k">值使门</span><span class="ci-v">${r.zhishi.door}</span></div>
+        <div class="ci-ju">${r.ju.name}</div>
+        <div class="ci-sub">叶盘 · ${genderText(GENDER)}</div>
+        <div class="ci-gan" title="中宫地盘干">${jiGan}</div>`;
       plate.appendChild(cell);
       return;
     }
+
+    const g = r.grid[p];
+    cell.className = 'cell';
     const doorCls = luckCls(DOOR_LUCK, g.door);
     const isPo = g.marks.includes('门迫');
-    // 门迫不再进入左下角 marks，改为贴在八门行
     const otherMarks = g.marks.filter(m=>m!=='门迫');
     const marksHtml = otherMarks.map(m=>`<span class="mark ${markClass(m)}">${m}</span>`).join('');
     const doorInner = g.door
       ? `<span class="door-name ${doorCls} ${isPo?'is-po':''}">${g.door}门</span>${isPo?'<span class="door-po-tag">门迫</span>':''}`
+      : '';
+    // 坤2宫：寄写中宫地盘干（小字）
+    const jiHtml = (p===2 && jiGan)
+      ? `<span class="ji-gan" title="中五宫地盘干寄于坤二宫">寄${jiGan}</span>`
       : '';
     cell.innerHTML = `
       <div class="cell-top">
@@ -463,7 +484,7 @@ function cast(noSave){
       <div class="row-door">${doorInner}</div>
       <div class="gan-zone" title="上为天盘干，下为地盘干">
         <span class="gan-sky">${g.skyGan||'·'}</span>
-        <span class="gan-earth">${g.earthGan||'·'}</span>
+        <span class="gan-earth">${g.earthGan||'·'}${jiHtml}</span>
       </div>
       <div class="marks">${marksHtml}</div>`;
     plate.appendChild(cell);
