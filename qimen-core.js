@@ -345,11 +345,16 @@
     for (const p in earthPlate) {
       if (earthPlate[p] === dunYi) fuPalace = parseInt(p);
     }
+    // 特殊局：旬首所遁之仪落「中5宫」（fuPalace===5）——
+    //   叶盘规则：值符星=天禽 留坐中5、值使门=死(借坤2)留中5，
+    //   九星/八门/八神一律「归本位、不转」，天盘干=地盘干。
+    const fuInCenter = (fuPalace === 5);
+
     // 值符星 = 该宫本位星；值使门 = 该宫本位门
     let zhifuStar = STAR_HOME[fuPalace];
     let zhishiDoor = DOOR_HOME[fuPalace];
-    if (fuPalace === 5) { zhifuStar = STAR_HOME[2]; zhishiDoor = DOOR_HOME[2]; } // 中宫寄坤2
-    const fuPalaceForRotate = (fuPalace === 5) ? 2 : fuPalace;
+    if (fuInCenter) { zhifuStar = STAR_HOME[5]; zhishiDoor = DOOR_HOME[2]; } // 天禽 / 死(借坤2)
+    const fuPalaceForRotate = fuInCenter ? 2 : fuPalace;
 
     // 时干落宫（时干在地盘的位置）
     let hourGanPalace = null;
@@ -363,15 +368,40 @@
     }
     if (hourGanPalace === 5) hourGanPalace = 2; // 中宫寄坤
 
-    // 6. 转天盘九星（值符星随时干，顺时针带动其余星）
-    const skyPlate = rotateStars(zhifuStar, fuPalaceForRotate, hourGanPalace, earthPlate, ju.yin);
-
-    // 7. 转人盘八门（值使门随时宫）
-    const doorPlate = rotateDoors(zhishiDoor, fuPalaceForRotate, hourZhiIdx, xunShou, ju.yin);
-
-    // 8. 转神盘八神（小符随大符，落于天盘值符星所在宫）
-    const zhifuFinalPalace = skyPlate.zhifuPalace; // 值符星最终落宫
-    const shenPlate = rotateShen(zhifuFinalPalace, ju.yin);
+    let skyPlate, doorPlate, shenPlate, zhifuFinalPalace;
+    if (fuInCenter) {
+      // 全本位盘：九星/八门/八神各归本位，天盘干=地盘干，天禽坐中5
+      const stars = {}, gan = {}, doors = {}, shen = {};
+      const SHEN_HOME_ORDER = ['值符','螣蛇','太阴','六合','白虎','玄武','九地','九天'];
+      for (let p = 1; p <= 9; p++) {
+        stars[p] = STAR_HOME[p];
+        gan[p] = earthPlate[p] || '';
+        if (p !== 5) doors[p] = DOOR_HOME[p];
+      }
+      // 八神：值符归其本位环起点=坤2(中宫寄坤)，按环顺/逆铺
+      const ringS = CLOCKWISE;
+      const startS = ringS.indexOf(2);
+      for (let i = 0; i < 8; i++) {
+        const ri = ju.yin ? (startS - i + 8) % 8 : (startS + i) % 8;
+        shen[ringS[ri]] = SHEN_HOME_ORDER[i];
+      }
+      // 天禽随天芮：天芮本位在坤2，天禽天盘干寄坤2、地盘干寄坤2
+      skyPlate = {
+        stars, gan, zhifuPalace: 5,
+        ruiPalace: 2, qinGan: earthPlate[5] || '', qinEarthGan: earthPlate[5] || ''
+      };
+      doorPlate = { doors, zhishiPalace: 5, zhishiPalaceRaw: 5 };
+      shenPlate = shen;
+      zhifuFinalPalace = 5;
+    } else {
+      // 6. 转天盘九星（值符星随时干，顺时针带动其余星）
+      skyPlate = rotateStars(zhifuStar, fuPalaceForRotate, hourGanPalace, earthPlate, ju.yin);
+      // 7. 转人盘八门（值使门随时宫）
+      doorPlate = rotateDoors(zhishiDoor, fuPalaceForRotate, hourZhiIdx, xunShou, ju.yin);
+      // 8. 转神盘八神（小符随大符，落于天盘值符星所在宫）
+      zhifuFinalPalace = skyPlate.zhifuPalace;
+      shenPlate = rotateShen(zhifuFinalPalace, ju.yin);
+    }
 
     // 9. 旬空 / 马星
     const kongwang = getKongWang(hourGanIdx, hourZhiIdx);
